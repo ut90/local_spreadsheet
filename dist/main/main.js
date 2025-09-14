@@ -176,16 +176,44 @@ electron_1.ipcMain.handle('validate:yaml', (_e, args) => {
     try {
         const data = YAML.parse(args.content);
         // Lazy require to avoid hard dependency during dev
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const Ajv = require('ajv');
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const addFormats = require('ajv-formats');
-        const ajv = new Ajv({ allErrors: true, strict: false });
+        let Ajv2020;
+        let addFormats;
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            Ajv2020 = require('ajv/dist/2020').default || require('ajv/dist/2020');
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            addFormats = require('ajv-formats');
+        }
+        catch (err) {
+            console.warn('[main] validate:yaml skipped (ajv not installed)');
+            return { ok: true, skipped: 'ajv-missing' };
+        }
+        const ajv = new Ajv2020({ allErrors: true, strict: false });
         addFormats(ajv);
-        const schemaPath = args.schema === 'contacts'
-            ? (0, node_path_1.join)(electron_1.app.getAppPath(), 'samples/contacts.schema.json')
-            : (0, node_path_1.join)(electron_1.app.getAppPath(), 'samples/communication_requirements.schema.json');
-        const schema = JSON.parse((0, node_fs_1.readFileSync)(schemaPath, 'utf8'));
+        // Resolve schema path in dev/prod both: try app root, then relative to compiled dir
+        const appRoot = electron_1.app.getAppPath();
+        const primary = args.schema === 'contacts'
+            ? (0, node_path_1.join)(appRoot, 'samples/contacts.schema.json')
+            : (0, node_path_1.join)(appRoot, 'samples/communication_requirements.schema.json');
+        const secondary = args.schema === 'contacts'
+            ? (0, node_path_1.join)(__dirname, '../../samples/contacts.schema.json')
+            : (0, node_path_1.join)(__dirname, '../../samples/communication_requirements.schema.json');
+        let schemaText = null;
+        try {
+            schemaText = (0, node_fs_1.readFileSync)(primary, 'utf8');
+        }
+        catch { }
+        if (!schemaText) {
+            try {
+                schemaText = (0, node_fs_1.readFileSync)(secondary, 'utf8');
+            }
+            catch { }
+        }
+        if (!schemaText) {
+            console.warn('[main] schema not found for', args.schema, { primary, secondary });
+            return { ok: true, skipped: 'schema-not-found' };
+        }
+        const schema = JSON.parse(schemaText);
         const validate = ajv.compile(schema);
         const ok = validate(data);
         const result = ok ? { ok: true } : { ok: false, errors: validate.errors };

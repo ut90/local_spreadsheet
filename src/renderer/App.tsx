@@ -28,10 +28,13 @@ export const App: React.FC = () => {
   const [minColWidth, setMinColWidth] = React.useState(30);
   const [maxColWidth, setMaxColWidth] = React.useState(120);
   const [fontSizePx, setFontSizePx] = React.useState(12);
+  const [validateOnSave, setValidateOnSave] = React.useState(true);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [ast, setAst] = React.useState<any | null>(null);
+  const [doc, setDoc] = React.useState<YAML.Document.Parsed | null>(null);
   const [dirty, setDirty] = React.useState(false);
   const [canSaveDirect, setCanSaveDirect] = React.useState(false);
+  const [savedText, setSavedText] = React.useState<string>('');
 
   // Use shared projection logic (also covered by unit tests)
 
@@ -53,12 +56,15 @@ export const App: React.FC = () => {
       setPath(f.name);
       setContent(text);
       try {
-        const parsed = YAML.parse(text);
-        setAst(parsed);
-        const g = project(parsed);
+        const parsedDoc = YAML.parseDocument(text, { keepCstNodes: true, keepNodeTypes: true });
+        setDoc(parsedDoc as any);
+        const json = parsedDoc.toJSON();
+        setAst(json);
+        const g = project(json);
         setGrid(g);
         setDirty(false);
         setCanSaveDirect(false);
+        setSavedText(text);
         console.log('[App] state init after open', { dirty: false, canSaveDirect: false });
         // 新規読み込み直後は未編集扱い、直接保存不可（パス不明のため）
         // Save Asのみ可
@@ -97,7 +103,7 @@ export const App: React.FC = () => {
   };
 
   const handleEdit = (rowIndex: number, key: string, value: string, subIndex?: number) => {
-    if (!ast || !grid) return;
+    if (!doc || !ast || !grid) return;
     try {
       // Detect dataset (array to edit)
       let dataset: any[] | null = null;
@@ -112,16 +118,33 @@ export const App: React.FC = () => {
           dataset = (ast as any)['連絡先'];
         }
       }
+      const applyToDoc = (base: (string | number)[], k: string, val: string, sub?: number) => {
+        const parts = k.split('.');
+        const path = [...base];
+        if (parts.length >= 2 && typeof sub === 'number') {
+          path.push(parts[0]);
+          path.push(sub);
+          path.push(parts.slice(1).join('.') || parts[parts.length - 1]);
+        } else {
+          path.push(k);
+        }
+        // Try preserving existing scalar style if node exists
+        const existing = (doc as any).getIn(path, true);
+        if (existing && typeof existing === 'object' && 'value' in existing) {
+          existing.value = val;
+        } else {
+          (doc as any).setIn(path, val);
+        }
+      };
       if (!dataset) {
         // single-object case
-        const next = { ...(ast as any) };
-        setDeep(next, key, value);
-        setAst(next);
-        setGrid(project(next));
-        setContent(YAML.stringify(next));
-        console.log('[App] edited single-object cell', { key, rowIndex, subIndex });
-        // 編集済み
-        (setDirty as any)(true);
+        applyToDoc([], key, value, subIndex);
+        const newText = doc.toString({ lineWidth: 0 });
+        setContent(newText);
+        const json = doc.toJSON();
+        setAst(json);
+        setGrid(project(json));
+        setDirty(true);
         return;
       }
       const nextArr = [...dataset];
@@ -134,8 +157,13 @@ export const App: React.FC = () => {
         item[field] = value;
         arr[subIndex] = item;
         row[group] = arr;
+        // apply to document
+        const base: (string | number)[] = Array.isArray(ast) ? [rowIndex] : dataset === (ast as any)['要件'] ? ['要件', rowIndex] : ['連絡先', rowIndex];
+        applyToDoc(base, key, value, subIndex);
       } else {
         setDeep(row, key, value);
+        const base: (string | number)[] = Array.isArray(ast) ? [rowIndex] : dataset === (ast as any)['要件'] ? ['要件', rowIndex] : ['連絡先', rowIndex];
+        applyToDoc(base, key, value);
       }
       nextArr[rowIndex] = row;
       const nextAst = { ...(Array.isArray(ast) ? {} : ast) } as any;
@@ -145,19 +173,21 @@ export const App: React.FC = () => {
       }
       if (Array.isArray(ast)) {
         // if the root is array
-        setAst(nextArr as any);
-        setGrid(project(nextArr as any));
-        setContent(YAML.stringify(nextArr as any));
-        console.log('[App] edited array cell', { key, rowIndex, subIndex });
-        (setDirty as any)(true);
+        const newText = doc.toString({ lineWidth: 0 });
+        setContent(newText);
+        const json = doc.toJSON();
+        setAst(json);
+        setGrid(project(json));
+        setDirty(true);
       } else {
         if (Array.isArray((ast as any)['要件'])) nextAst['要件'] = nextArr;
         else if (Array.isArray((ast as any)['連絡先'])) nextAst['連絡先'] = nextArr;
-        setAst(nextAst);
-        setGrid(project(nextAst));
-        setContent(YAML.stringify(nextAst));
-        console.log('[App] edited array-under-object cell', { key, rowIndex, subIndex });
-        (setDirty as any)(true);
+        const newText = doc.toString({ lineWidth: 0 });
+        setContent(newText);
+        const json = doc.toJSON();
+        setAst(json);
+        setGrid(project(json));
+        setDirty(true);
       }
     } catch (e) {
       console.error('edit failed', e);
@@ -175,24 +205,58 @@ export const App: React.FC = () => {
     return null;
   };
 
+  const detectDataset = (obj: any): any[] | null => {
+    if (Array.isArray(obj)) return obj;
+    if (obj && typeof obj === 'object') {
+      if (Array.isArray((obj as any)['要件'])) return (obj as any)['要件'];
+      if (Array.isArray((obj as any)['連絡先'])) return (obj as any)['連絡先'];
+      const arrKeys = Object.keys(obj).filter((k) => Array.isArray((obj as any)[k]));
+      if (arrKeys.length) {
+        arrKeys.sort((a, b) => ((obj as any)[b]?.length || 0) - ((obj as any)[a]?.length || 0));
+        return (obj as any)[arrKeys[0]] as any[];
+      }
+    }
+    return null;
+  };
+
   const doSave = async (as?: boolean) => {
     if (!ast) return;
     console.log('[App] doSave called', { as });
-    const nextText = YAML.stringify(ast);
+    const nextText = doc ? (doc as any).toString({ lineWidth: 0 }) : YAML.stringify(ast);
     console.log('[App] stringify done', { bytes: nextText.length, dirty });
-    const before = content;
-    const textToSave = dirty ? nextText : before; // 未編集なら原文をそのまま使う
-    const hunks = diffLines(before, textToSave);
-    const added = hunks.filter(h => (h as any).added).length;
-    const removed = hunks.filter(h => (h as any).removed).length;
-    const summary = `差分: +${added}, -${removed}. 保存しますか？`;
+    const beforeText = savedText || content; // 最後に保存したテキストを基準
+    let summary = '';
+    try {
+      const beforeObj = YAML.parse(beforeText);
+      const afterObj = YAML.parse(nextText);
+      const beforeArr = detectDataset(beforeObj) ?? [beforeObj];
+      const afterArr = detectDataset(afterObj) ?? [afterObj];
+      const minLen = Math.min(beforeArr.length, afterArr.length);
+      let modified = 0;
+      for (let i = 0; i < minLen; i++) {
+        const a = beforeArr[i];
+        const b = afterArr[i];
+        if (JSON.stringify(a) !== JSON.stringify(b)) modified++;
+      }
+      const addedRows = Math.max(0, afterArr.length - beforeArr.length);
+      const removedRows = Math.max(0, beforeArr.length - afterArr.length);
+      summary = `行の変更: 追加 ${addedRows}, 削除 ${removedRows}, 変更 ${modified}。保存しますか？`;
+    } catch {
+      // フォールバック: テキスト差分（行数）
+      const hunks = diffLines(beforeText, nextText);
+      const added = hunks.filter(h => (h as any).added).length;
+      const removed = hunks.filter(h => (h as any).removed).length;
+      summary = `差分(行数): +${added}, -${removed}。保存しますか？`;
+    }
     const schema = detectSchema(nextText);
     console.log('[App] detected schema', schema);
-    if (schema) {
+    if (schema && validateOnSave) {
       try {
-        const res = await window.api.validate(nextText, schema);
+        const res: any = await window.api.validate(nextText, schema);
         console.log('[App] validate result', res);
-        if (!res.ok) {
+        if (res.skipped) {
+          console.warn('[App] schema validation skipped:', res.skipped);
+        } else if (!res.ok) {
           const msg = `スキーマ検証エラー:\n` + (res.errors || []).map(e => `- ${e.instancePath || ''} ${e.message || ''}`).join('\n');
           if (!confirm(msg + '\nそれでも保存しますか？')) return;
         }
@@ -205,20 +269,21 @@ export const App: React.FC = () => {
     // Save As が必要な条件: 明示as指定 / 直接保存不可
     if (as || !canSaveDirect) {
       try {
-        const r = await (window as any).api.file.saveAs(path || schemaName, textToSave);
+        const r = await (window as any).api.file.saveAs(path || schemaName, nextText);
         console.log('[App] saveAs result', r);
         if ((r as any)?.canceled || !r?.path) return;
         setPath(r.path);
-        setContent(textToSave);
+        setContent(nextText);
         (setDirty as any)(false);
-        setAst(YAML.parse(textToSave));
+        setAst(YAML.parse(nextText));
+        setSavedText(nextText);
         // 直接保存可能となる
         setCanSaveDirect(true);
         return;
       } catch (err) {
         console.warn('[App] saveAs IPC failed, fallback to browser download', err);
         try {
-          const blob = new Blob([textToSave], { type: 'text/yaml' });
+          const blob = new Blob([nextText], { type: 'text/yaml' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
@@ -227,9 +292,10 @@ export const App: React.FC = () => {
           a.click();
           document.body.removeChild(a);
           URL.revokeObjectURL(url);
-          setContent(textToSave);
+          setContent(nextText);
           (setDirty as any)(false);
-          setAst(YAML.parse(textToSave));
+          setAst(YAML.parse(nextText));
+          setSavedText(nextText);
           // 直接保存フラグは維持（falseのまま）
           return;
         } catch (e) {
@@ -240,11 +306,12 @@ export const App: React.FC = () => {
     }
     // 直接保存できる場合
     try {
-      const r = await (window as any).api.file.save(path, textToSave);
+      const r = await (window as any).api.file.save(path, nextText);
       console.log('[App] save result', r);
-      setContent(textToSave);
+      setContent(nextText);
       (setDirty as any)(false);
-      setAst(YAML.parse(textToSave));
+      setAst(YAML.parse(nextText));
+      setSavedText(nextText);
     } catch (e) {
       console.error('[App] save failed', e);
       alert('保存に失敗しました');
@@ -289,6 +356,9 @@ export const App: React.FC = () => {
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <input type="checkbox" checked={wrapCells} onChange={(e) => setWrapCells(e.target.checked)} /> Wrap cells
+        </label>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <input type="checkbox" checked={validateOnSave} onChange={(e) => setValidateOnSave(e.target.checked)} /> Validate on save
         </label>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           Min width:

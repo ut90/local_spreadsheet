@@ -158,6 +158,15 @@ export const GridView: React.FC<Props> = ({
     }
   };
 
+  // Track a single active inline editor to avoid stacking and click blocking
+  const editorRef = React.useRef<HTMLInputElement | null>(null);
+  const closeEditor = () => {
+    if (editorRef.current) {
+      try { editorRef.current.remove(); } catch {}
+      editorRef.current = null;
+    }
+  };
+
   const getCellPosInContainer = (td: HTMLElement) => {
     if (!containerRef.current) return { left: 0, top: 0 };
     const cRect = containerRef.current.getBoundingClientRect();
@@ -278,6 +287,8 @@ export const GridView: React.FC<Props> = ({
                               if (!onEdit || !containerRef.current) return;
                               const target = e.currentTarget as HTMLTableCellElement;
                               const prev = String(v ?? '');
+                              // Close any existing editor before opening a new one
+                              if (editorRef.current) { try { editorRef.current.remove(); } catch {} editorRef.current = null; }
                               // Create inline input overlay
                               const input = document.createElement('input');
                               input.type = 'text';
@@ -300,7 +311,7 @@ export const GridView: React.FC<Props> = ({
                               input.style.zIndex = '10';
                               input.style.boxSizing = 'border-box';
                               let closed = false;
-                              const close = () => { if (closed) return; closed = true; input.remove(); };
+                              const close = () => { if (closed) return; closed = true; try { input.remove(); } catch {} if (editorRef.current === input) editorRef.current = null; };
                               const commit = () => { if (closed) return; onEdit(rowIdx, c.key, input.value); close(); };
                               input.addEventListener('keydown', (ev) => {
                                 if (ev.key === 'Enter') {
@@ -311,8 +322,9 @@ export const GridView: React.FC<Props> = ({
                                   ev.preventDefault();
                                 }
                               });
-                              input.addEventListener('blur', () => commit(), { once: true } as any);
+                              input.addEventListener('blur', () => { commit(); }, { once: true } as any);
                               containerRef.current.appendChild(input);
+                              editorRef.current = input;
                               input.focus();
                               input.select();
                             }}
@@ -349,6 +361,7 @@ export const GridView: React.FC<Props> = ({
                           if (!onEdit || !containerRef.current) return;
                           const target = e.currentTarget as HTMLTableCellElement;
                           const prev = String(value ?? '');
+                          if (editorRef.current) { try { editorRef.current.remove(); } catch {} editorRef.current = null; }
                           const input = document.createElement('input');
                           input.type = 'text';
                           input.value = prev;
@@ -369,7 +382,7 @@ export const GridView: React.FC<Props> = ({
                           input.style.zIndex = '10';
                           input.style.boxSizing = 'border-box';
                           let closed = false;
-                          const close = () => { if (closed) return; closed = true; input.remove(); };
+                          const close = () => { if (closed) return; closed = true; try { input.remove(); } catch {} if (editorRef.current === input) editorRef.current = null; };
                           const commit = () => { if (closed) return; onEdit(rowIdx, c.key, input.value, subIdx); close(); };
                           input.addEventListener('keydown', (ev) => {
                             if (ev.key === 'Enter') {
@@ -380,8 +393,9 @@ export const GridView: React.FC<Props> = ({
                               ev.preventDefault();
                             }
                           });
-                          input.addEventListener('blur', () => commit(), { once: true } as any);
+                          input.addEventListener('blur', () => { commit(); }, { once: true } as any);
                           containerRef.current.appendChild(input);
+                          editorRef.current = input;
                           input.focus();
                           input.select();
                         }}
