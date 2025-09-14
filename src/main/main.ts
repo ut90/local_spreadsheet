@@ -55,6 +55,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  console.log('[main] app ready – creating window');
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -111,6 +112,7 @@ ipcMain.handle('file:openRequest', async (_e, args: { path?: string }) => {
 });
 
 ipcMain.handle('file:saveRequest', (_e, args: { path: string; content: string }) => {
+  console.log('[main] file:saveRequest', { path: args.path, bytes: args.content?.length });
   // Create timestamped backup if file exists
   try {
     const old = readFileSync(args.path, 'utf8');
@@ -129,6 +131,7 @@ ipcMain.handle('file:saveRequest', (_e, args: { path: string; content: string })
 });
 
 ipcMain.handle('file:saveAsRequest', async (_e, args: { defaultPath?: string; content: string }) => {
+  console.log('[main] file:saveAsRequest', { defaultPath: args.defaultPath, bytes: args.content?.length });
   const browser = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
   const res = await dialog.showSaveDialog(browser ?? undefined, {
     title: 'Save YAML',
@@ -141,6 +144,7 @@ ipcMain.handle('file:saveAsRequest', async (_e, args: { defaultPath?: string; co
 });
 
 ipcMain.handle('validate:yaml', (_e, args: { content: string; schema: 'communication' | 'contacts' }) => {
+  console.log('[main] validate:yaml', { schema: args.schema, bytes: args.content?.length });
   try {
     const data = YAML.parse(args.content);
     const ajv = new Ajv({ allErrors: true, strict: false });
@@ -151,8 +155,11 @@ ipcMain.handle('validate:yaml', (_e, args: { content: string; schema: 'communica
     const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
     const validate = ajv.compile(schema);
     const ok = validate(data);
-    return ok ? { ok: true } : { ok: false, errors: validate.errors };
+    const result = ok ? { ok: true } : { ok: false, errors: validate.errors };
+    console.log('[main] validate:yaml result', { ok: (result as any).ok, errors: (result as any).errors?.length || 0 });
+    return result;
   } catch (e: any) {
+    console.warn('[main] validate:yaml error', e?.message || e);
     return { ok: false, errors: [{ message: String(e?.message || e) }] } as any;
   }
 });

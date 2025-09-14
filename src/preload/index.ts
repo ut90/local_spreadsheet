@@ -16,13 +16,25 @@ contextBridge.exposeInMainWorld('api', {
         return { canceled: true } as any;
       }
     },
-    save: async (path: string, content: string): Promise<{ path: string }> =>
-      ipcRenderer.invoke('file:saveRequest', { path, content }),
-    saveAs: async (defaultPath: string | undefined, content: string): Promise<{ path?: string; canceled?: boolean }> =>
-      ipcRenderer.invoke('file:saveAsRequest', { defaultPath, content }),
+    save: async (path: string, content: string): Promise<{ path: string }> => {
+      console.log('[preload] invoking file:saveRequest', { path, bytes: content?.length });
+      const res = await ipcRenderer.invoke('file:saveRequest', { path, content });
+      console.log('[preload] file:saveRequest result', res);
+      return res;
+    },
+    saveAs: async (defaultPath: string | undefined, content: string): Promise<{ path?: string; canceled?: boolean }> => {
+      console.log('[preload] invoking file:saveAsRequest', { defaultPath, bytes: content?.length });
+      const res = await ipcRenderer.invoke('file:saveAsRequest', { defaultPath, content });
+      console.log('[preload] file:saveAsRequest result', res);
+      return res;
+    },
   },
-  validate: async (content: string, schema: 'communication' | 'contacts'): Promise<{ ok: boolean; errors?: any[] }> =>
-    ipcRenderer.invoke('validate:yaml', { content, schema }),
+  validate: async (content: string, schema: 'communication' | 'contacts'): Promise<{ ok: boolean; errors?: any[] }> => {
+    console.log('[preload] invoking validate:yaml', { schema, bytes: content?.length });
+    const res = await ipcRenderer.invoke('validate:yaml', { content, schema });
+    console.log('[preload] validate:yaml result', res);
+    return res;
+  },
 });
 
 export {}; // ensure module scope

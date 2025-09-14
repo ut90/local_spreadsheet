@@ -148,29 +148,39 @@ export const App: React.FC = () => {
 
   const doSave = async (as?: boolean) => {
     if (!ast) return;
+    console.log('[App] doSave called', { as });
     const nextText = YAML.stringify(ast);
+    console.log('[App] stringify done', { bytes: nextText.length });
     const before = content;
     const hunks = diffLines(before, nextText);
     const added = hunks.filter(h => (h as any).added).length;
     const removed = hunks.filter(h => (h as any).removed).length;
     const summary = `差分: +${added}, -${removed}. 保存しますか？`;
     const schema = detectSchema(nextText);
+    console.log('[App] detected schema', schema);
     if (schema) {
-      const res = await window.api.validate(nextText, schema);
-      if (!res.ok) {
-        const msg = `スキーマ検証エラー:\n` + (res.errors || []).map(e => `- ${e.instancePath || ''} ${e.message || ''}`).join('\n');
-        if (!confirm(msg + '\nそれでも保存しますか？')) return;
+      try {
+        const res = await window.api.validate(nextText, schema);
+        console.log('[App] validate result', res);
+        if (!res.ok) {
+          const msg = `スキーマ検証エラー:\n` + (res.errors || []).map(e => `- ${e.instancePath || ''} ${e.message || ''}`).join('\n');
+          if (!confirm(msg + '\nそれでも保存しますか？')) return;
+        }
+      } catch (e) {
+        console.warn('[App] validate invoke failed, continuing with user confirm', e);
       }
     }
     if (!confirm(summary)) return;
     if (as || !path || path.indexOf('/') === -1) {
       const r = await window.api.file.saveAs(path || 'data.yaml', nextText);
+      console.log('[App] saveAs result', r);
       if ((r as any)?.canceled || !r?.path) return;
       setPath(r.path);
       setContent(nextText);
       return;
     } else {
-      await window.api.file.save(path, nextText);
+      const r = await window.api.file.save(path, nextText);
+      console.log('[App] save result', r);
       setContent(nextText);
     }
   };

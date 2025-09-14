@@ -18,8 +18,23 @@ electron_1.contextBridge.exposeInMainWorld('api', {
                 return { canceled: true };
             }
         },
-        save: async (path, content) => electron_1.ipcRenderer.invoke('file:saveRequest', { path, content }),
-        saveAs: async (defaultPath, content) => electron_1.ipcRenderer.invoke('file:saveAsRequest', { defaultPath, content }),
+        save: async (path, content) => {
+            console.log('[preload] invoking file:saveRequest', { path, bytes: content?.length });
+            const res = await electron_1.ipcRenderer.invoke('file:saveRequest', { path, content });
+            console.log('[preload] file:saveRequest result', res);
+            return res;
+        },
+        saveAs: async (defaultPath, content) => {
+            console.log('[preload] invoking file:saveAsRequest', { defaultPath, bytes: content?.length });
+            const res = await electron_1.ipcRenderer.invoke('file:saveAsRequest', { defaultPath, content });
+            console.log('[preload] file:saveAsRequest result', res);
+            return res;
+        },
     },
-    validate: async (content, schema) => electron_1.ipcRenderer.invoke('validate:yaml', { content, schema }),
+    validate: async (content, schema) => {
+        console.log('[preload] invoking validate:yaml', { schema, bytes: content?.length });
+        const res = await electron_1.ipcRenderer.invoke('validate:yaml', { content, schema });
+        console.log('[preload] validate:yaml result', res);
+        return res;
+    },
 });

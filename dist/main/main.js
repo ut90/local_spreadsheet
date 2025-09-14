@@ -88,6 +88,7 @@ function createWindow() {
     }
 }
 electron_1.app.whenReady().then(() => {
+    console.log('[main] app ready – creating window');
     createWindow();
     electron_1.app.on('activate', () => {
         if (electron_1.BrowserWindow.getAllWindows().length === 0)
@@ -144,6 +145,7 @@ electron_1.ipcMain.handle('file:openRequest', async (_e, args) => {
     }
 });
 electron_1.ipcMain.handle('file:saveRequest', (_e, args) => {
+    console.log('[main] file:saveRequest', { path: args.path, bytes: args.content?.length });
     // Create timestamped backup if file exists
     try {
         const old = (0, node_fs_1.readFileSync)(args.path, 'utf8');
@@ -162,6 +164,7 @@ electron_1.ipcMain.handle('file:saveRequest', (_e, args) => {
     return { path: args.path };
 });
 electron_1.ipcMain.handle('file:saveAsRequest', async (_e, args) => {
+    console.log('[main] file:saveAsRequest', { defaultPath: args.defaultPath, bytes: args.content?.length });
     const browser = electron_1.BrowserWindow.getFocusedWindow() || electron_1.BrowserWindow.getAllWindows()[0];
     const res = await electron_1.dialog.showSaveDialog(browser ?? undefined, {
         title: 'Save YAML',
@@ -174,6 +177,7 @@ electron_1.ipcMain.handle('file:saveAsRequest', async (_e, args) => {
     return { path: res.filePath };
 });
 electron_1.ipcMain.handle('validate:yaml', (_e, args) => {
+    console.log('[main] validate:yaml', { schema: args.schema, bytes: args.content?.length });
     try {
         const data = YAML.parse(args.content);
         const ajv = new ajv_1.default({ allErrors: true, strict: false });
@@ -184,9 +188,12 @@ electron_1.ipcMain.handle('validate:yaml', (_e, args) => {
         const schema = JSON.parse((0, node_fs_1.readFileSync)(schemaPath, 'utf8'));
         const validate = ajv.compile(schema);
         const ok = validate(data);
-        return ok ? { ok: true } : { ok: false, errors: validate.errors };
+        const result = ok ? { ok: true } : { ok: false, errors: validate.errors };
+        console.log('[main] validate:yaml result', { ok: result.ok, errors: result.errors?.length || 0 });
+        return result;
     }
     catch (e) {
+        console.warn('[main] validate:yaml error', e?.message || e);
         return { ok: false, errors: [{ message: String(e?.message || e) }] };
     }
 });
