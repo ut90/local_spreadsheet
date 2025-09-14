@@ -18,7 +18,11 @@ contextBridge.exposeInMainWorld('api', {
     },
     save: async (path: string, content: string): Promise<{ path: string }> =>
       ipcRenderer.invoke('file:saveRequest', { path, content }),
+    saveAs: async (defaultPath: string | undefined, content: string): Promise<{ path?: string; canceled?: boolean }> =>
+      ipcRenderer.invoke('file:saveAsRequest', { defaultPath, content }),
   },
+  validate: async (content: string, schema: 'communication' | 'contacts'): Promise<{ ok: boolean; errors?: any[] }> =>
+    ipcRenderer.invoke('validate:yaml', { content, schema }),
 });
 
 export {}; // ensure module scope

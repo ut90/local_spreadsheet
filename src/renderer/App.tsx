@@ -3,6 +3,7 @@ import * as YAML from 'yaml';
 import type { GridModel } from './types';
 import { project } from './lib/project';
 import { GridView } from './components/GridView';
+import { diffLines } from 'diff';
 
 declare global {
   interface Window {
@@ -134,6 +135,46 @@ export const App: React.FC = () => {
     }
   };
 
+  const detectSchema = (text: string): 'communication' | 'contacts' | null => {
+    try {
+      const obj = YAML.parse(text);
+      if (obj && typeof obj === 'object') {
+        if (Array.isArray((obj as any)['要件'])) return 'communication';
+        if (Array.isArray((obj as any)['連絡先'])) return 'contacts';
+      }
+    } catch {}
+    return null;
+  };
+
+  const doSave = async (as?: boolean) => {
+    if (!ast) return;
+    const nextText = YAML.stringify(ast);
+    const before = content;
+    const hunks = diffLines(before, nextText);
+    const added = hunks.filter(h => (h as any).added).length;
+    const removed = hunks.filter(h => (h as any).removed).length;
+    const summary = `差分: +${added}, -${removed}. 保存しますか？`;
+    const schema = detectSchema(nextText);
+    if (schema) {
+      const res = await window.api.validate(nextText, schema);
+      if (!res.ok) {
+        const msg = `スキーマ検証エラー:\n` + (res.errors || []).map(e => `- ${e.instancePath || ''} ${e.message || ''}`).join('\n');
+        if (!confirm(msg + '\nそれでも保存しますか？')) return;
+      }
+    }
+    if (!confirm(summary)) return;
+    if (as || !path || path.indexOf('/') === -1) {
+      const r = await window.api.file.saveAs(path || 'data.yaml', nextText);
+      if ((r as any)?.canceled || !r?.path) return;
+      setPath(r.path);
+      setContent(nextText);
+      return;
+    } else {
+      await window.api.file.save(path, nextText);
+      setContent(nextText);
+    }
+  };
+
   // Sample open helpers removed now that Open YAML… works reliably
 
   const renderGrid = () =>
@@ -164,6 +205,10 @@ export const App: React.FC = () => {
           onChange={onPickFile}
         />
         <button onClick={triggerFilePicker}>Open YAML…</button>
+        <span style={{ marginLeft: 8 }} />
+        <button onClick={() => doSave(false)} disabled={!ast}>Save</button>
+        <span style={{ marginLeft: 8 }} />
+        <button onClick={() => doSave(true)} disabled={!ast}>Save As…</button>
       </p>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>

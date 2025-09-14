@@ -1,4 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import Ajv from 'ajv';
+import addFormats from 'ajv-formats';
+import * as YAML from 'yaml';
 import { join, isAbsolute } from 'node:path';
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -108,6 +111,48 @@ ipcMain.handle('file:openRequest', async (_e, args: { path?: string }) => {
 });
 
 ipcMain.handle('file:saveRequest', (_e, args: { path: string; content: string }) => {
+  // Create timestamped backup if file exists
+  try {
+    const old = readFileSync(args.path, 'utf8');
+    const ts = new Date();
+    const y = ts.getFullYear();
+    const m = String(ts.getMonth() + 1).padStart(2, '0');
+    const d = String(ts.getDate()).padStart(2, '0');
+    const hh = String(ts.getHours()).padStart(2, '0');
+    const mm = String(ts.getMinutes()).padStart(2, '0');
+    const ss = String(ts.getSeconds()).padStart(2, '0');
+    const bak = `${args.path}.${y}${m}${d}-${hh}${mm}${ss}.bak`;
+    writeFileSync(bak, old, 'utf8');
+  } catch {}
   writeFileSync(args.path, args.content, 'utf8');
   return { path: args.path };
+});
+
+ipcMain.handle('file:saveAsRequest', async (_e, args: { defaultPath?: string; content: string }) => {
+  const browser = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+  const res = await dialog.showSaveDialog(browser ?? undefined, {
+    title: 'Save YAML',
+    defaultPath: args.defaultPath || 'data.yaml',
+    filters: [{ name: 'YAML', extensions: ['yaml', 'yml'] }],
+  });
+  if (res.canceled || !res.filePath) return { canceled: true } as any;
+  writeFileSync(res.filePath, args.content, 'utf8');
+  return { path: res.filePath };
+});
+
+ipcMain.handle('validate:yaml', (_e, args: { content: string; schema: 'communication' | 'contacts' }) => {
+  try {
+    const data = YAML.parse(args.content);
+    const ajv = new Ajv({ allErrors: true, strict: false });
+    addFormats(ajv);
+    const schemaPath = args.schema === 'contacts'
+      ? join(app.getAppPath(), 'samples/contacts.schema.json')
+      : join(app.getAppPath(), 'samples/communication_requirements.schema.json');
+    const schema = JSON.parse(readFileSync(schemaPath, 'utf8'));
+    const validate = ajv.compile(schema);
+    const ok = validate(data);
+    return ok ? { ok: true } : { ok: false, errors: validate.errors };
+  } catch (e: any) {
+    return { ok: false, errors: [{ message: String(e?.message || e) }] } as any;
+  }
 });

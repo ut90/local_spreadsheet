@@ -19,5 +19,7 @@ electron_1.contextBridge.exposeInMainWorld('api', {
             }
         },
         save: async (path, content) => electron_1.ipcRenderer.invoke('file:saveRequest', { path, content }),
+        saveAs: async (defaultPath, content) => electron_1.ipcRenderer.invoke('file:saveAsRequest', { defaultPath, content }),
     },
+    validate: async (content, schema) => electron_1.ipcRenderer.invoke('validate:yaml', { content, schema }),
 });
