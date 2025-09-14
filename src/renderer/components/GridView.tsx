@@ -16,9 +16,9 @@ export const GridView: React.FC<Props> = ({
   grid,
   height = 400,
   rowHeight = 28,
-  wrapCells = false,
-  minColWidth = 120,
-  maxColWidth = 800,
+  wrapCells = true,
+  minColWidth = 30,
+  maxColWidth = 120,
   fontSizePx = 12,
 }) => {
   const headerRef = React.useRef<HTMLDivElement | null>(null);
@@ -42,12 +42,16 @@ export const GridView: React.FC<Props> = ({
 
   // Build two-level header groups: group = first segment (before '.'), child = last segment
   const leafColumns = grid.columns;
-  const baseColWidth = 140;
+  const baseColWidth = minColWidth;
   // Helpers used by width calc and rendering
   const childLabel = (key: string) => {
     const parts = key.split('.');
     return parts.length >= 2 ? parts[parts.length - 1] : key;
   };
+  // When wrapping is enabled, allow breaking long tokens like hostnames/IPs
+  const wrappingStyles = wrapCells
+    ? { whiteSpace: 'normal' as const, overflowWrap: 'anywhere' as const, wordBreak: 'break-word' as const, textOverflow: 'clip' as const }
+    : { whiteSpace: 'nowrap' as const, overflow: 'hidden' as const, textOverflow: 'ellipsis' as const };
   // Build per-group field list from columns
   const groupFields: Record<string, string[]> = React.useMemo(() => {
     const map: Record<string, string[]> = {};
@@ -251,9 +255,7 @@ export const GridView: React.FC<Props> = ({
                             style={{
                               padding: '6px 8px',
                               borderRight: '1px solid #f3f3f3',
-                              whiteSpace: wrapCells ? 'normal' : 'nowrap',
-                              overflow: wrapCells ? 'visible' : 'hidden',
-                              textOverflow: wrapCells ? 'clip' : 'ellipsis',
+                              ...wrappingStyles,
                               fontFamily: 'monospace',
                               fontSize: fontSizePx,
                               boxSizing: 'border-box',
@@ -281,9 +283,7 @@ export const GridView: React.FC<Props> = ({
                         style={{
                           padding: '6px 8px',
                           borderRight: '1px solid #f3f3f3',
-                          whiteSpace: wrapCells ? 'normal' : 'nowrap',
-                          overflow: wrapCells ? 'visible' : 'hidden',
-                          textOverflow: wrapCells ? 'clip' : 'ellipsis',
+                          ...wrappingStyles,
                           fontFamily: 'monospace',
                           fontSize: fontSizePx,
                           boxSizing: 'border-box',

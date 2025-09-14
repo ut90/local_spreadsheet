@@ -21,9 +21,9 @@ export const App: React.FC = () => {
   const [path, setPath] = React.useState<string>('');
   const [content, setContent] = React.useState<string>('');
   const [grid, setGrid] = React.useState<GridModel | null>(null);
-  const [wrapCells, setWrapCells] = React.useState(false);
-  const [minColWidth, setMinColWidth] = React.useState(120);
-  const [maxColWidth, setMaxColWidth] = React.useState(800);
+  const [wrapCells, setWrapCells] = React.useState(true);
+  const [minColWidth, setMinColWidth] = React.useState(30);
+  const [maxColWidth, setMaxColWidth] = React.useState(120);
   const [fontSizePx, setFontSizePx] = React.useState(12);
 
   // Use shared projection logic (also covered by unit tests)
@@ -87,9 +87,9 @@ export const App: React.FC = () => {
           <input
             type="number"
             value={minColWidth}
-            min={60}
+            min={30}
             max={maxColWidth}
-            onChange={(e) => setMinColWidth(Math.min(Math.max(60, Number(e.target.value) || 0), maxColWidth))}
+            onChange={(e) => setMinColWidth(Math.min(Math.max(30, Number(e.target.value) || 0), maxColWidth))}
             style={{ width: 80 }}
           />
           px
