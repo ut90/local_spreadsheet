@@ -51,3 +51,13 @@
 ## Architecture Notes for Contributors/Agents
 - All edits flow through Operations; keep workers deterministic.
 - Consult `ARCHITECTURE.md` and `DETAILED_DESIGN.md` before changes.
+
+## Issue Management (Filesystem-based)
+- Location: track issues as Markdown under `issue/`; closed items move to `issue/close/`.
+- File naming: `issue-XXXX.md` (4-digit sequence) or `issue-YYYYMMDD-<slug>.md`. Keep unique and stable.
+- Minimal fields:
+  - Title, Status(open/close), Created/Updated, Owner, Labels, Summary, Repro/Expected/Actual, Links.
+- Close flow:
+  - Update `Status: close` with resolution note, then `mv issue/issue-XXXX.md issue/close/`.
+- Summary:
+  - Maintain `issue/README.md` with an Open Issues table (filename, title, owner, labels, updated) and a Closed tally.
