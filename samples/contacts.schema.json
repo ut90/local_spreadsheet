@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/schemas/contacts.schema.json",
+  "title": "連絡先一覧 スキーマ",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "連絡先": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/Contact" }
+    }
+  },
+  "required": ["連絡先"],
+  "$defs": {
+    "Contact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "区分": {
+          "type": "string",
+          "enum": [
+            "システム主管",
+            "業務主管",
+            "運用センター",
+            "開発部門",
+            "システムA",
+            "システムB"
+          ]
+        },
+        "会社・組織名": { "type": "string", "minLength": 1 },
+        "担当者名": { "type": "string", "minLength": 1 },
+        "電話番号": {
+          "type": "string",
+          "pattern": "^[0-9+()\\-\\s]{5,20}$"
+        },
+        "メールアドレス": { "type": "string", "format": "email" }
+      },
+      "required": [
+        "区分",
+        "会社・組織名",
+        "担当者名",
+        "電話番号",
+        "メールアドレス"
+      ]
+    }
+  }
+}
+
