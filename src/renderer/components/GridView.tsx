@@ -9,6 +9,7 @@ type Props = {
   minColWidth?: number;
   maxColWidth?: number;
   fontSizePx?: number;
+  onEdit?: (rowIndex: number, key: string, value: string) => void;
 };
 
 // Lightweight, dependency-free virtualized grid (read-only)
@@ -20,6 +21,7 @@ export const GridView: React.FC<Props> = ({
   minColWidth = 30,
   maxColWidth = 120,
   fontSizePx = 12,
+  onEdit,
 }) => {
   const headerRef = React.useRef<HTMLDivElement | null>(null);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
@@ -156,6 +158,15 @@ export const GridView: React.FC<Props> = ({
     }
   };
 
+  const getCellPosInContainer = (td: HTMLElement) => {
+    if (!containerRef.current) return { left: 0, top: 0 };
+    const cRect = containerRef.current.getBoundingClientRect();
+    const tRect = td.getBoundingClientRect();
+    const left = tRect.left - cRect.left + (containerRef.current.scrollLeft || 0);
+    const top = tRect.top - cRect.top + (containerRef.current.scrollTop || 0);
+    return { left, top };
+  };
+
   React.useLayoutEffect(() => {
     const measure = () => {
       if (!containerRef.current) return;
@@ -212,7 +223,7 @@ export const GridView: React.FC<Props> = ({
           </thead>
         </table>
       </div>
-      <div ref={containerRef} onScroll={(e) => { onScroll(e); if (headerRef.current) headerRef.current.scrollLeft = (e.target as HTMLDivElement).scrollLeft; }} style={{ height, overflow: 'auto' }}>
+      <div ref={containerRef} onScroll={(e) => { onScroll(e); if (headerRef.current) headerRef.current.scrollLeft = (e.target as HTMLDivElement).scrollLeft; }} style={{ height, overflow: 'auto', position: 'relative' }}>
         <table style={{ width: tableWidth, borderCollapse: 'collapse', tableLayout: 'fixed' }}>
           <colgroup>
             {leafColumns.map((c) => (
@@ -260,8 +271,51 @@ export const GridView: React.FC<Props> = ({
                               fontSize: fontSizePx,
                               boxSizing: 'border-box',
                               textAlign: 'left',
+                              cursor: onEdit ? 'text' : 'default',
                             }}
                             title={formatCell(v)}
+                            onDoubleClick={(e) => {
+                              if (!onEdit || !containerRef.current) return;
+                              const target = e.currentTarget as HTMLTableCellElement;
+                              const prev = String(v ?? '');
+                              // Create inline input overlay
+                              const input = document.createElement('input');
+                              input.type = 'text';
+                              input.value = prev;
+                              input.style.position = 'absolute';
+                              const pos = getCellPosInContainer(target);
+                              const tdRect = target.getBoundingClientRect();
+                              const within = (e as unknown as MouseEvent).clientY - tdRect.top;
+                              const snap = Math.max(0, Math.floor(within / rowHeight) * rowHeight);
+                              input.style.left = `${pos.left + 2}px`;
+                              input.style.top = `${pos.top + snap + 2}px`;
+                              input.style.width = `${(colWidths[c.key] ?? baseColWidth) - 10}px`;
+                              input.style.height = `${rowHeight - 6}px`;
+                              input.style.fontFamily = 'monospace';
+                              input.style.fontSize = `${fontSizePx}px`;
+                              input.style.padding = '2px 4px';
+                              input.style.border = '1px solid #60a5fa';
+                              input.style.borderRadius = '4px';
+                              input.style.background = '#fff';
+                              input.style.zIndex = '10';
+                              input.style.boxSizing = 'border-box';
+                              let closed = false;
+                              const close = () => { if (closed) return; closed = true; input.remove(); };
+                              const commit = () => { if (closed) return; onEdit(rowIdx, c.key, input.value); close(); };
+                              input.addEventListener('keydown', (ev) => {
+                                if (ev.key === 'Enter') {
+                                  commit();
+                                  ev.preventDefault();
+                                } else if (ev.key === 'Escape') {
+                                  close();
+                                  ev.preventDefault();
+                                }
+                              });
+                              input.addEventListener('blur', () => commit(), { once: true } as any);
+                              containerRef.current.appendChild(input);
+                              input.focus();
+                              input.select();
+                            }}
                           >
                             {formatCell(v)}
                           </td>
@@ -288,8 +342,49 @@ export const GridView: React.FC<Props> = ({
                           fontSize: fontSizePx,
                           boxSizing: 'border-box',
                           textAlign: 'left',
+                          cursor: onEdit ? 'text' : 'default',
                         }}
                         title={formatCell(value)}
+                        onDoubleClick={(e) => {
+                          if (!onEdit || !containerRef.current) return;
+                          const target = e.currentTarget as HTMLTableCellElement;
+                          const prev = String(value ?? '');
+                          const input = document.createElement('input');
+                          input.type = 'text';
+                          input.value = prev;
+                          input.style.position = 'absolute';
+                              const pos = getCellPosInContainer(target);
+                              const tRect = target.getBoundingClientRect();
+                              const centerOffset = Math.max(0, Math.round((tRect.height - rowHeight) / 2));
+                              input.style.left = `${pos.left + 2}px`;
+                              input.style.top = `${pos.top + centerOffset + 2}px`;
+                              input.style.width = `${Math.max(40, target.clientWidth - 10)}px`;
+                              input.style.height = `${rowHeight - 6}px`;
+                          input.style.fontFamily = 'monospace';
+                          input.style.fontSize = `${fontSizePx}px`;
+                          input.style.padding = '2px 4px';
+                          input.style.border = '1px solid #60a5fa';
+                          input.style.borderRadius = '4px';
+                          input.style.background = '#fff';
+                          input.style.zIndex = '10';
+                          input.style.boxSizing = 'border-box';
+                          let closed = false;
+                          const close = () => { if (closed) return; closed = true; input.remove(); };
+                          const commit = () => { if (closed) return; onEdit(rowIdx, c.key, input.value, subIdx); close(); };
+                          input.addEventListener('keydown', (ev) => {
+                            if (ev.key === 'Enter') {
+                              commit();
+                              ev.preventDefault();
+                            } else if (ev.key === 'Escape') {
+                              close();
+                              ev.preventDefault();
+                            }
+                          });
+                          input.addEventListener('blur', () => commit(), { once: true } as any);
+                          containerRef.current.appendChild(input);
+                          input.focus();
+                          input.select();
+                        }}
                       >
                         {formatCell(value)}
                       </td>
