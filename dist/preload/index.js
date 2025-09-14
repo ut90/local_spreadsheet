@@ -6,7 +6,18 @@ electron_1.contextBridge.exposeInMainWorld('api', {
         getVersion: async () => electron_1.ipcRenderer.invoke('app:getVersion'),
     },
     file: {
-        open: async (path) => electron_1.ipcRenderer.invoke('file:openRequest', { path }),
+        open: async (path) => {
+            try {
+                console.log('[preload] invoking file:openRequest', { hasPath: !!path });
+                const res = await electron_1.ipcRenderer.invoke('file:openRequest', { path });
+                console.log('[preload] file:openRequest result', { canceled: res?.canceled, hasContent: !!res?.content });
+                return res;
+            }
+            catch (e) {
+                console.error('[preload] file:openRequest error', e);
+                return { canceled: true };
+            }
+        },
         save: async (path, content) => electron_1.ipcRenderer.invoke('file:saveRequest', { path, content }),
     },
 });

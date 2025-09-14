@@ -25,6 +25,7 @@ export const App: React.FC = () => {
   const [minColWidth, setMinColWidth] = React.useState(30);
   const [maxColWidth, setMaxColWidth] = React.useState(120);
   const [fontSizePx, setFontSizePx] = React.useState(12);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Use shared projection logic (also covered by unit tests)
 
@@ -33,22 +34,56 @@ export const App: React.FC = () => {
     setVersion(v.version);
   };
 
-  const openSample = async () => {
-    const res = await window.api.file.open();
+  const triggerFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const onPickFile: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+    try {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      const text = await f.text();
+      console.log('[App] picked file:', f.name, 'bytes=', text.length);
+      setPath(f.name);
+      setContent(text);
+      try {
+        const ast = YAML.parse(text);
+        const g = project(ast);
+        setGrid(g);
+      } catch (err) {
+        console.error('YAML parse failed', err);
+        setGrid(null);
+      }
+    } finally {
+      // allow re-picking the same file later
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const openSampleComm = async () => {
+    const res = await window.api.file.open('samples/communication_requirements.sample.yaml');
     if (!res.canceled && res.content && res.path) {
-      console.log('[App] openSample: path=%s, bytes=%d', res.path, res.content.length);
       setPath(res.path);
       setContent(res.content);
       try {
         const ast = YAML.parse(res.content);
-        console.log('[App] YAML parsed, astType=%s', Array.isArray(ast) ? 'array' : typeof ast);
         const g = project(ast);
-        console.log('[App] projected grid: columns=%d, rows=%d', g.columns.length, g.rows.length);
-        try {
-          const sample = g.rows[0]?.cells || {};
-          console.log('[App] first row cell keys:', Object.keys(sample));
-          console.log('[App] first row 自システム=%o 他システム=%o', sample['自システム']?.value, sample['他システム']?.value);
-        } catch {}
+        setGrid(g);
+      } catch (e) {
+        console.error('YAML parse failed', e);
+        setGrid(null);
+      }
+    }
+  };
+
+  const openSampleContacts = async () => {
+    const res = await window.api.file.open('samples/contacts.sample.yaml');
+    if (!res.canceled && res.content && res.path) {
+      setPath(res.path);
+      setContent(res.content);
+      try {
+        const ast = YAML.parse(res.content);
+        const g = project(ast);
         setGrid(g);
       } catch (e) {
         console.error('YAML parse failed', e);
@@ -76,7 +111,18 @@ export const App: React.FC = () => {
         <button onClick={getVersion}>Get Version</button>
       </p>
       <p>
-        <button onClick={openSample}>Open YAML…</button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".yaml,.yml,application/x-yaml,text/yaml"
+          style={{ display: 'none' }}
+          onChange={onPickFile}
+        />
+        <button onClick={triggerFilePicker}>Open YAML…</button>
+        <span style={{ marginLeft: 8 }} />
+        <button onClick={openSampleComm}>Open Sample: Communication Requirements</button>
+        <span style={{ marginLeft: 8 }} />
+        <button onClick={openSampleContacts}>Open Sample: Contacts</button>
       </p>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>

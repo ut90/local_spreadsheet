@@ -63,20 +63,38 @@ electron_1.app.on('window-all-closed', () => {
 electron_1.ipcMain.handle('app:getVersion', () => ({ version: electron_1.app.getVersion() }));
 electron_1.ipcMain.handle('file:openRequest', async (_e, args) => {
     try {
+        console.log('[main] file:openRequest', { hasPath: !!args?.path });
         if (!args?.path) {
-            const res = await electron_1.dialog.showOpenDialog({
+            const browser = electron_1.BrowserWindow.getFocusedWindow() || electron_1.BrowserWindow.getAllWindows()[0];
+            const options = {
                 title: 'Open YAML',
                 properties: ['openFile'],
+                defaultPath: (0, node_path_1.join)(electron_1.app.getAppPath(), 'samples'),
                 filters: [
                     { name: 'YAML', extensions: ['yaml', 'yml'] },
                     { name: 'All Files', extensions: ['*'] },
                 ],
-            });
-            if (res.canceled || !res.filePaths?.[0])
+            };
+            // Try attached dialog first
+            const res1 = await electron_1.dialog.showOpenDialog(browser ?? undefined, options);
+            console.log('[main] openDialog (attached) result', { canceled: res1.canceled, count: res1.filePaths?.length ?? 0 });
+            let picked = res1.filePaths?.[0];
+            if (!picked && res1.canceled) {
+                // Fallback: unattached dialog
+                const res2 = await electron_1.dialog.showOpenDialog(options);
+                console.log('[main] openDialog (unattached) result', { canceled: res2.canceled, count: res2.filePaths?.length ?? 0 });
+                picked = res2.filePaths?.[0];
+                if (!picked && res2.canceled) {
+                    // Last resort: sync dialog (some environments behave better)
+                    const res3 = electron_1.dialog.showOpenDialogSync(options);
+                    console.log('[main] openDialogSync result', { count: res3?.length ?? 0 });
+                    picked = res3 && res3[0];
+                }
+            }
+            if (!picked)
                 return { canceled: true };
-            const p = res.filePaths[0];
-            const content = (0, node_fs_1.readFileSync)(p, 'utf8');
-            return { path: p, content };
+            const content = (0, node_fs_1.readFileSync)(picked, 'utf8');
+            return { path: picked, content };
         }
         const p = (0, node_path_1.isAbsolute)(args.path) ? args.path : (0, node_path_1.join)(electron_1.app.getAppPath(), args.path);
         const content = (0, node_fs_1.readFileSync)(p, 'utf8');

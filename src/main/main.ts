@@ -67,19 +67,37 @@ ipcMain.handle('app:getVersion', () => ({ version: app.getVersion() }));
 
 ipcMain.handle('file:openRequest', async (_e, args: { path?: string }) => {
   try {
+    console.log('[main] file:openRequest', { hasPath: !!args?.path });
     if (!args?.path) {
-      const res = await dialog.showOpenDialog({
+      const browser = BrowserWindow.getFocusedWindow() || BrowserWindow.getAllWindows()[0];
+      const options = {
         title: 'Open YAML',
-        properties: ['openFile'],
+        properties: ['openFile'] as const,
+        defaultPath: join(app.getAppPath(), 'samples'),
         filters: [
           { name: 'YAML', extensions: ['yaml', 'yml'] },
           { name: 'All Files', extensions: ['*'] },
         ],
-      });
-      if (res.canceled || !res.filePaths?.[0]) return { canceled: true };
-      const p = res.filePaths[0];
-      const content = readFileSync(p, 'utf8');
-      return { path: p, content };
+      };
+      // Try attached dialog first
+      const res1 = await dialog.showOpenDialog(browser ?? undefined, options as any);
+      console.log('[main] openDialog (attached) result', { canceled: res1.canceled, count: res1.filePaths?.length ?? 0 });
+      let picked = res1.filePaths?.[0];
+      if (!picked && res1.canceled) {
+        // Fallback: unattached dialog
+        const res2 = await dialog.showOpenDialog(options as any);
+        console.log('[main] openDialog (unattached) result', { canceled: res2.canceled, count: res2.filePaths?.length ?? 0 });
+        picked = res2.filePaths?.[0];
+        if (!picked && res2.canceled) {
+          // Last resort: sync dialog (some environments behave better)
+          const res3 = dialog.showOpenDialogSync(options as any);
+          console.log('[main] openDialogSync result', { count: res3?.length ?? 0 });
+          picked = res3 && res3[0];
+        }
+      }
+      if (!picked) return { canceled: true };
+      const content = readFileSync(picked, 'utf8');
+      return { path: picked, content };
     }
     const p = isAbsolute(args.path) ? args.path : join(app.getAppPath(), args.path);
     const content = readFileSync(p, 'utf8');
