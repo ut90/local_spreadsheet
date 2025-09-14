@@ -26,6 +26,7 @@ export const App: React.FC = () => {
   const [maxColWidth, setMaxColWidth] = React.useState(120);
   const [fontSizePx, setFontSizePx] = React.useState(12);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [ast, setAst] = React.useState<any | null>(null);
 
   // Use shared projection logic (also covered by unit tests)
 
@@ -47,8 +48,9 @@ export const App: React.FC = () => {
       setPath(f.name);
       setContent(text);
       try {
-        const ast = YAML.parse(text);
-        const g = project(ast);
+        const parsed = YAML.parse(text);
+        setAst(parsed);
+        const g = project(parsed);
         setGrid(g);
       } catch (err) {
         console.error('YAML parse failed', err);
@@ -57,6 +59,78 @@ export const App: React.FC = () => {
     } finally {
       // allow re-picking the same file later
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const setDeep = (obj: any, path: string, value: unknown) => {
+    const parts = path.split('.');
+    let cur = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const k = parts[i];
+      if (cur[k] == null || typeof cur[k] !== 'object') cur[k] = {};
+      cur = cur[k];
+    }
+    cur[parts[parts.length - 1]] = value as any;
+  };
+
+  const handleEdit = (rowIndex: number, key: string, value: string, subIndex?: number) => {
+    if (!ast || !grid) return;
+    try {
+      // Detect dataset (array to edit)
+      let dataset: any[] | null = null;
+      let container: any = ast;
+      if (Array.isArray(ast)) dataset = ast;
+      else if (ast && typeof ast === 'object') {
+        if (Array.isArray((ast as any)['要件'])) {
+          container = ast;
+          dataset = (ast as any)['要件'];
+        } else if (Array.isArray((ast as any)['連絡先'])) {
+          container = ast;
+          dataset = (ast as any)['連絡先'];
+        }
+      }
+      if (!dataset) {
+        // single-object case
+        const next = { ...(ast as any) };
+        setDeep(next, key, value);
+        setAst(next);
+        setGrid(project(next));
+        setContent(YAML.stringify(next));
+        return;
+      }
+      const nextArr = [...dataset];
+      const row = { ...(nextArr[rowIndex] || {}) };
+      if (key.includes('.') && typeof subIndex === 'number') {
+        const [group, ...rest] = key.split('.');
+        const field = rest.join('.') || key;
+        const arr = Array.isArray(row[group]) ? [...(row[group] as any[])] : [];
+        const item = { ...(arr[subIndex] || {}) };
+        item[field] = value;
+        arr[subIndex] = item;
+        row[group] = arr;
+      } else {
+        setDeep(row, key, value);
+      }
+      nextArr[rowIndex] = row;
+      const nextAst = { ...(Array.isArray(ast) ? {} : ast) } as any;
+      if (Array.isArray(ast)) {
+        // replace root array
+        (nextAst as any).length = 0; // no-op placeholder
+      }
+      if (Array.isArray(ast)) {
+        // if the root is array
+        setAst(nextArr as any);
+        setGrid(project(nextArr as any));
+        setContent(YAML.stringify(nextArr as any));
+      } else {
+        if (Array.isArray((ast as any)['要件'])) nextAst['要件'] = nextArr;
+        else if (Array.isArray((ast as any)['連絡先'])) nextAst['連絡先'] = nextArr;
+        setAst(nextAst);
+        setGrid(project(nextAst));
+        setContent(YAML.stringify(nextAst));
+      }
+    } catch (e) {
+      console.error('edit failed', e);
     }
   };
 
@@ -70,6 +144,7 @@ export const App: React.FC = () => {
         minColWidth={minColWidth}
         maxColWidth={maxColWidth}
         fontSizePx={fontSizePx}
+        onEdit={handleEdit}
       />
     ) : null;
 
