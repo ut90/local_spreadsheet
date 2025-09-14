@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import { join, isAbsolute } from 'node:path';
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -65,11 +65,28 @@ app.on('window-all-closed', () => {
 // IPC Handlers (minimal per SPEC-IPC)
 ipcMain.handle('app:getVersion', () => ({ version: app.getVersion() }));
 
-ipcMain.handle('file:openRequest', (_e, args: { path?: string }) => {
-  if (!args?.path) return { canceled: true };
-  const p = isAbsolute(args.path) ? args.path : join(app.getAppPath(), args.path);
-  const content = readFileSync(p, 'utf8');
-  return { path: p, content };
+ipcMain.handle('file:openRequest', async (_e, args: { path?: string }) => {
+  try {
+    if (!args?.path) {
+      const res = await dialog.showOpenDialog({
+        title: 'Open YAML',
+        properties: ['openFile'],
+        filters: [
+          { name: 'YAML', extensions: ['yaml', 'yml'] },
+          { name: 'All Files', extensions: ['*'] },
+        ],
+      });
+      if (res.canceled || !res.filePaths?.[0]) return { canceled: true };
+      const p = res.filePaths[0];
+      const content = readFileSync(p, 'utf8');
+      return { path: p, content };
+    }
+    const p = isAbsolute(args.path) ? args.path : join(app.getAppPath(), args.path);
+    const content = readFileSync(p, 'utf8');
+    return { path: p, content };
+  } catch (err: any) {
+    return { canceled: true, error: String(err?.message || err) } as any;
+  }
 });
 
 ipcMain.handle('file:saveRequest', (_e, args: { path: string; content: string }) => {

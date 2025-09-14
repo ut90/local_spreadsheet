@@ -34,7 +34,7 @@ export const App: React.FC = () => {
   };
 
   const openSample = async () => {
-    const res = await window.api.file.open('samples/communication_requirements.sample.yaml');
+    const res = await window.api.file.open();
     if (!res.canceled && res.content && res.path) {
       console.log('[App] openSample: path=%s, bytes=%d', res.path, res.content.length);
       setPath(res.path);
@@ -76,7 +76,7 @@ export const App: React.FC = () => {
         <button onClick={getVersion}>Get Version</button>
       </p>
       <p>
-        <button onClick={openSample}>Open Sample YAML</button>
+        <button onClick={openSample}>Open YAML…</button>
       </p>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
