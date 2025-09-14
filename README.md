@@ -15,7 +15,7 @@ YAMLを「スプレッドシート的な表形式」で安全かつ直感的に�
 - `src/`: アプリ本体
   - `main/`: Electron Main（エントリは `dist/main/main.js`）
   - `preload/`: Preload（`contextBridge` でAPI公開）
-  - `renderer/`: React + Vite（UI, グリッドは `glide-data-grid` を使用）
+  - `renderer/`: React + Vite（UI, 依存レスな軽量グリッド実装を内蔵）
 
 ## サンプルとバリデーション（Node.js）
 - 依存導入: `npm i -D ajv ajv-formats yaml`
@@ -41,4 +41,4 @@ YAMLを「スプレッドシート的な表形式」で安全かつ直感的に�
 - 依存導入: `npm i`
 - 開発起動: `npm run dev`（Vite + tscウォッチ + Electron）
 - 本番ビルド: `npm run build`
-  - グリッド表示: サンプルYAMLを読み込み後、`glide-data-grid` に投影して表示（読み取り専用）
+  - グリッド表示: サンプルYAMLを読み込み後、内蔵の軽量グリッドで表示（読み取り専用）
