@@ -60,37 +60,7 @@ export const App: React.FC = () => {
     }
   };
 
-  const openSampleComm = async () => {
-    const res = await window.api.file.open('samples/communication_requirements.sample.yaml');
-    if (!res.canceled && res.content && res.path) {
-      setPath(res.path);
-      setContent(res.content);
-      try {
-        const ast = YAML.parse(res.content);
-        const g = project(ast);
-        setGrid(g);
-      } catch (e) {
-        console.error('YAML parse failed', e);
-        setGrid(null);
-      }
-    }
-  };
-
-  const openSampleContacts = async () => {
-    const res = await window.api.file.open('samples/contacts.sample.yaml');
-    if (!res.canceled && res.content && res.path) {
-      setPath(res.path);
-      setContent(res.content);
-      try {
-        const ast = YAML.parse(res.content);
-        const g = project(ast);
-        setGrid(g);
-      } catch (e) {
-        console.error('YAML parse failed', e);
-        setGrid(null);
-      }
-    }
-  };
+  // Sample open helpers removed now that Open YAML… works reliably
 
   const renderGrid = () =>
     grid ? (
@@ -119,10 +89,6 @@ export const App: React.FC = () => {
           onChange={onPickFile}
         />
         <button onClick={triggerFilePicker}>Open YAML…</button>
-        <span style={{ marginLeft: 8 }} />
-        <button onClick={openSampleComm}>Open Sample: Communication Requirements</button>
-        <span style={{ marginLeft: 8 }} />
-        <button onClick={openSampleContacts}>Open Sample: Contacts</button>
       </p>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
