@@ -9,10 +9,11 @@
 - Mapping root: a single row; top-level keys become columns.
 - Scalar root: a single row with a single `value` column.
 
-## Column Keys (dot-path)
+## Column Keys (dot-path) と列順
 - Nested fields flatten using dot-path: `a.b.c`.
 - Array index uses brackets: `items[3].name` (internal `astPath`), but columns never include indexes; they represent keys (e.g., `items.name`).
 - Column set = union of keys across all rows; hidden columns can be toggled.
+- Column order follows the key order in the first data item (or the single object when not a sequence). Keys that appear later are appended in the order of first appearance. Within grouped two-level columns, child order follows first appearance as well.
 
 ## Missing/Empty/Null
 - Missing key → empty cell (no AST node yet).
@@ -21,7 +22,11 @@
 
 ## Mixed Types & Arrays
 - If rows under the same column hold different scalar types, keep per-cell type.
-- Nested arrays are not expanded into separate rows in MVP; show JSON string or count, and allow drill‑down in future.
+- Arrays of objects under a logical group (e.g., `自システムサーバー`, `他システムサーバー`) are aggregated into two-level columns:
+  - Column keys become `<group>.<field>` for the union of fields across elements.
+  - Each cell shows values joined by `、` across the array elements.
+  - Example: `他システムサーバー: [{ 名称, ホスト, IP }, ...]` → columns `他システムサーバー.名称`, `他システムサーバー.ホスト`, `他システムサーバー.IP`.
+- Nested arrays of primitives or mixed types fall back to a single-level column `<key>` with joined display.
 
 ## Duplicate Keys (YAML edge case)
 - Detect duplicates in a mapping and surface a validation error.
@@ -47,4 +52,3 @@ YAML (sequence of objects):
     created_at: 2025-09-01
 ```
 Grid columns: `id`, `name`, `meta.created_at`
-

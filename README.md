@@ -33,6 +33,7 @@ YAMLを「スプレッドシート的な表形式」で安全かつ直感的に�
 - バックアップ/復元: `doc/design/BACKUP_AND_RECOVERY.md`
 - エラーカタログ: `doc/design/ERROR_CATALOG.md`
 - UX仕様: `doc/design/UX-SPEC.md`
+- グリッド見出し仕様（2段ヘッダー混在）: `doc/design/GRID_HEADER_SPEC.md`
 - パフォーマンス目標: `doc/design/PERFORMANCE_BUDGET.md`
 - セキュリティ: `doc/design/SECURITY.md`
 - 設定仕様: `doc/design/SETTINGS.md`

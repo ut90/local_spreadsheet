@@ -1,6 +1,7 @@
 import React from 'react';
 import * as YAML from 'yaml';
 import type { GridModel } from './types';
+import { project } from './lib/project';
 import { GridView } from './components/GridView';
 
 declare global {
@@ -21,64 +22,7 @@ export const App: React.FC = () => {
   const [content, setContent] = React.useState<string>('');
   const [grid, setGrid] = React.useState<GridModel | null>(null);
 
-  // Simple in-renderer projection to avoid worker issues in some environments
-  function inferType(v: any): 'string' | 'int' | 'float' | 'bool' | 'null' | 'date' | 'unknown' {
-    if (v === null) return 'null';
-    if (typeof v === 'boolean') return 'bool';
-    if (typeof v === 'number') return Number.isInteger(v) ? 'int' : 'float';
-    if (typeof v === 'string') {
-      if (/^\d{4}-\d{2}-\d{2}/.test(v)) return 'date';
-      return 'string';
-    }
-    return 'unknown';
-  }
-  function flatten(obj: any, prefix = ''): Record<string, any> {
-    const out: Record<string, any> = {};
-    if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
-      for (const [k, v] of Object.entries(obj)) {
-        const key = prefix ? `${prefix}.${k}` : k;
-        if (v && typeof v === 'object' && !Array.isArray(v)) {
-          Object.assign(out, flatten(v, key));
-        } else {
-          out[key] = v;
-        }
-      }
-    } else {
-      out[prefix || 'value'] = obj;
-    }
-    return out;
-  }
-  function project(ast: any): GridModel {
-    const rows: any[] = [];
-    const colSet = new Set<string>();
-    if (Array.isArray(ast)) {
-      ast.forEach((item: any, idx: number) => {
-        const flat = flatten(item);
-        Object.keys(flat).forEach((k) => colSet.add(k));
-        rows.push({ id: String(idx), cells: flat });
-      });
-    } else if (ast && typeof ast === 'object') {
-      const flat = flatten(ast);
-      Object.keys(flat).forEach((k) => colSet.add(k));
-      rows.push({ id: '0', cells: flat });
-    } else {
-      rows.push({ id: '0', cells: { value: ast } });
-      colSet.add('value');
-    }
-    const columns = Array.from(colSet)
-      .sort()
-      .map((key) => ({ key, label: key, visible: true }));
-    const projRows = rows.map((r) => ({
-      id: r.id,
-      cells: Object.fromEntries(
-        columns.map((c) => {
-          const v = r.cells[c.key];
-          return [c.key, { value: v, type: inferType(v) }];
-        }),
-      ),
-    }));
-    return { columns, rows: projRows };
-  }
+  // Use shared projection logic (also covered by unit tests)
 
   const getVersion = async () => {
     const v = await window.api.app.getVersion();
@@ -88,11 +32,20 @@ export const App: React.FC = () => {
   const openSample = async () => {
     const res = await window.api.file.open('samples/communication_requirements.sample.yaml');
     if (!res.canceled && res.content && res.path) {
+      console.log('[App] openSample: path=%s, bytes=%d', res.path, res.content.length);
       setPath(res.path);
       setContent(res.content);
       try {
         const ast = YAML.parse(res.content);
-        setGrid(project(ast));
+        console.log('[App] YAML parsed, astType=%s', Array.isArray(ast) ? 'array' : typeof ast);
+        const g = project(ast);
+        console.log('[App] projected grid: columns=%d, rows=%d', g.columns.length, g.rows.length);
+        try {
+          const sample = g.rows[0]?.cells || {};
+          console.log('[App] first row cell keys:', Object.keys(sample));
+          console.log('[App] first row 自システム=%o 他システム=%o', sample['自システム']?.value, sample['他システム']?.value);
+        } catch {}
+        setGrid(g);
       } catch (e) {
         console.error('YAML parse failed', e);
         setGrid(null);

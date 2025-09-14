@@ -28,10 +28,31 @@ function inferType(v: any): 'string' | 'int' | 'float' | 'bool' | 'null' | 'date
 
 function flatten(obj: any, prefix = ''): Record<string, any> {
   const out: Record<string, any> = {};
-  if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+  if (Array.isArray(obj)) {
+    obj.forEach((v, i) => {
+      const key = prefix ? `${prefix}.${i}` : String(i);
+      if (v && typeof v === 'object') {
+        Object.assign(out, flatten(v, key));
+      } else {
+        out[key] = v;
+      }
+    });
+    return out;
+  }
+
+  if (obj && typeof obj === 'object') {
     for (const [k, v] of Object.entries(obj)) {
       const key = prefix ? `${prefix}.${k}` : k;
-      if (v && typeof v === 'object' && !Array.isArray(v)) {
+      if (Array.isArray(v)) {
+        v.forEach((item, i) => {
+          const arrKey = `${key}.${i}`;
+          if (item && typeof item === 'object') {
+            Object.assign(out, flatten(item, arrKey));
+          } else {
+            out[arrKey] = item;
+          }
+        });
+      } else if (v && typeof v === 'object') {
         Object.assign(out, flatten(v, key));
       } else {
         out[key] = v;
@@ -115,4 +136,3 @@ self.onmessage = (ev: MessageEvent<Req>) => {
     (self as any).postMessage(res);
   }
 };
-

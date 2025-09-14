@@ -17,9 +17,35 @@ function createWindow() {
   });
 
   if (isDev) {
+    // In development, inject a restrictive CSP to silence Electron warnings
+    // while allowing Vite's HMR (WebSocket) and inline style tags it creates.
+    const devCsp = [
+      // Allow Vite HMR, React Refresh, and workers in dev
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob:",
+      "font-src 'self' data:",
+      "connect-src 'self' ws:",
+      "worker-src 'self' blob:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'none'",
+    ].join('; ');
+
+    win.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+      const headers = details.responseHeaders || {};
+      headers['Content-Security-Policy'] = [devCsp];
+      callback({ responseHeaders: headers });
+    });
+
     const devUrl = process.env.ELECTRON_START_URL || 'http://localhost:5173';
     win.loadURL(devUrl);
-    win.webContents.openDevTools({ mode: 'detach' });
+    const shouldOpenDevTools = process.env.ELECTRON_OPEN_DEVTOOLS === '1';
+    if (shouldOpenDevTools) {
+      win.webContents.openDevTools({ mode: 'detach' });
+    }
   } else {
     win.loadFile(join(__dirname, '../../dist/renderer/index.html'));
   }
