@@ -12,7 +12,9 @@ declare global {
       file: {
         open: (path?: string) => Promise<{ path?: string; content?: string; canceled?: boolean }>;
         save: (path: string, content: string) => Promise<{ path: string }>;
+        saveAs: (defaultPath: string | undefined, content: string) => Promise<{ path?: string; canceled?: boolean }>;
       };
+      validate: (content: string, schema: 'communication' | 'contacts') => Promise<{ ok: boolean; errors?: any[] }>;  
     };
   }
 }
@@ -53,6 +55,21 @@ export const App: React.FC = () => {
         setAst(parsed);
         const g = project(parsed);
         setGrid(g);
+        // 新規読み込み直後は未編集扱い、直接保存不可（パス不明のため）
+        // Save Asのみ可
+        // pathはファイル名のみ（file inputのため）
+        // contentは原文を保持
+        // astはparsed
+        // dirtyはfalse
+        // canSaveDirectはfalse
+        // これにより、未編集でSave As時は原文を保存し、差分0となる
+        // 編集後はdirty=trueとなり、stringify結果を保存
+        // canSaveDirectはSave As成功後true
+        // Saveで直接保存できるのは実パスが判明した後
+        // Windows/Unixの区別は不要
+        // ログ
+        console.log('[App] state init after open', { dirty: false, canSaveDirect: false });
+        
       } catch (err) {
         console.error('YAML parse failed', err);
         setGrid(null);
@@ -97,6 +114,9 @@ export const App: React.FC = () => {
         setAst(next);
         setGrid(project(next));
         setContent(YAML.stringify(next));
+        console.log('[App] edited single-object cell', { key, rowIndex, subIndex });
+        // 編集済み
+        (setDirty as any)(true);
         return;
       }
       const nextArr = [...dataset];
@@ -123,12 +143,16 @@ export const App: React.FC = () => {
         setAst(nextArr as any);
         setGrid(project(nextArr as any));
         setContent(YAML.stringify(nextArr as any));
+        console.log('[App] edited array cell', { key, rowIndex, subIndex });
+        (setDirty as any)(true);
       } else {
         if (Array.isArray((ast as any)['要件'])) nextAst['要件'] = nextArr;
         else if (Array.isArray((ast as any)['連絡先'])) nextAst['連絡先'] = nextArr;
         setAst(nextAst);
         setGrid(project(nextAst));
         setContent(YAML.stringify(nextAst));
+        console.log('[App] edited array-under-object cell', { key, rowIndex, subIndex });
+        (setDirty as any)(true);
       }
     } catch (e) {
       console.error('edit failed', e);
@@ -150,9 +174,10 @@ export const App: React.FC = () => {
     if (!ast) return;
     console.log('[App] doSave called', { as });
     const nextText = YAML.stringify(ast);
-    console.log('[App] stringify done', { bytes: nextText.length });
+    console.log('[App] stringify done', { bytes: nextText.length, dirty });
     const before = content;
-    const hunks = diffLines(before, nextText);
+    const textToSave = dirty ? nextText : before; // 未編集なら原文をそのまま使う
+    const hunks = diffLines(before, textToSave);
     const added = hunks.filter(h => (h as any).added).length;
     const removed = hunks.filter(h => (h as any).removed).length;
     const summary = `差分: +${added}, -${removed}. 保存しますか？`;
@@ -171,17 +196,53 @@ export const App: React.FC = () => {
       }
     }
     if (!confirm(summary)) return;
-    if (as || !path || path.indexOf('/') === -1) {
-      const r = await window.api.file.saveAs(path || 'data.yaml', nextText);
-      console.log('[App] saveAs result', r);
-      if ((r as any)?.canceled || !r?.path) return;
-      setPath(r.path);
-      setContent(nextText);
-      return;
-    } else {
-      const r = await window.api.file.save(path, nextText);
+    const schemaName = schema === 'contacts' ? 'contacts.yaml' : schema === 'communication' ? 'communication_requirements.yaml' : 'data.yaml';
+    // Save As が必要な条件: 明示as指定 / 直接保存不可
+    if (as || !canSaveDirect) {
+      try {
+        const r = await (window as any).api.file.saveAs(path || schemaName, textToSave);
+        console.log('[App] saveAs result', r);
+        if ((r as any)?.canceled || !r?.path) return;
+        setPath(r.path);
+        setContent(textToSave);
+        (setDirty as any)(false);
+        setAst(YAML.parse(textToSave));
+        // 直接保存可能となる
+        setCanSaveDirect(true);
+        return;
+      } catch (err) {
+        console.warn('[App] saveAs IPC failed, fallback to browser download', err);
+        try {
+          const blob = new Blob([textToSave], { type: 'text/yaml' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = path || schemaName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          setContent(textToSave);
+          (setDirty as any)(false);
+          setAst(YAML.parse(textToSave));
+          // 直接保存フラグは維持（falseのまま）
+          return;
+        } catch (e) {
+          alert('保存に失敗しました（フォールバックも失敗）');
+          return;
+        }
+      }
+    }
+    // 直接保存できる場合
+    try {
+      const r = await (window as any).api.file.save(path, textToSave);
       console.log('[App] save result', r);
-      setContent(nextText);
+      setContent(textToSave);
+      (setDirty as any)(false);
+      setAst(YAML.parse(textToSave));
+    } catch (e) {
+      console.error('[App] save failed', e);
+      alert('保存に失敗しました');
     }
   };
 
