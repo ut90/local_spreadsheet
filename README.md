@@ -12,6 +12,10 @@ YAMLを「スプレッドシート的な表形式」で安全かつ直感的に�
 - `samples/`: サンプルデータと検証スキーマ
   - `communication_requirements.sample.yaml`
   - `communication_requirements.schema.json`
+ - `src/`: アプリ本体
+   - `main/`: Electron Main（エントリは `dist/main/main.js`）
+   - `preload/`: Preload（`contextBridge` でAPI公開）
+   - `renderer/`: React + Vite（UI）
 
 ## サンプルとバリデーション（Node.js）
 - 依存導入: `npm i -D ajv ajv-formats yaml`
@@ -33,3 +37,7 @@ YAMLを「スプレッドシート的な表形式」で安全かつ直感的に�
 - セキュリティ: `doc/design/SECURITY.md`
 - 設定仕様: `doc/design/SETTINGS.md`
 - テスト戦略: `doc/design/TEST_STRATEGY.md`
+- 実行（MVP開発用）
+  - 依存導入: `npm i`
+  - 開発起動: `npm run dev`（Vite + tscウォッチ + Electron）
+  - 本番ビルド: `npm run build`
