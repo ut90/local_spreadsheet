@@ -30,6 +30,8 @@ export const App: React.FC = () => {
   const [fontSizePx, setFontSizePx] = React.useState(12);
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [ast, setAst] = React.useState<any | null>(null);
+  const [dirty, setDirty] = React.useState(false);
+  const [canSaveDirect, setCanSaveDirect] = React.useState(false);
 
   // Use shared projection logic (also covered by unit tests)
 
@@ -55,6 +57,9 @@ export const App: React.FC = () => {
         setAst(parsed);
         const g = project(parsed);
         setGrid(g);
+        setDirty(false);
+        setCanSaveDirect(false);
+        console.log('[App] state init after open', { dirty: false, canSaveDirect: false });
         // 新規読み込み直後は未編集扱い、直接保存不可（パス不明のため）
         // Save Asのみ可
         // pathはファイル名のみ（file inputのため）
