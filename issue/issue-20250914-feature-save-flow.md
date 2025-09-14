@@ -8,7 +8,13 @@ Labels: feature, save, validation, diff, backup
 
 ## Summary
 - 編集内容を安全に保存するフローを実装する。
-- 手順: AST→stringify→schema検証→diffプレビュー→バックアップ→書込→通知。
+- 手順: AST(Document)→toString→schema検証→diffプレビュー→バックアップ→書込→通知。
+
+## Progress
+- DONE: Save/Save As（バックアップ、ダイアログ、ブラウザDLフォールバック）
+- DONE: 検証（Ajv 2020 / スキップ時は静かに継続）
+- DONE: 差分要約（行＝項目単位の追加/削除/変更）
+- TODO: DiffプレビューUI（要約ではなく内容の表示）
 
 ## Tasks
 - [ ] Worker: stringify APIの利用点を整理（既存）
@@ -21,4 +27,3 @@ Labels: feature, save, validation, diff, backup
 ## Related Links
 - doc/design/GRID_HEADER_SPEC.md
 - doc/design/PROJECTION_RULES.md
-

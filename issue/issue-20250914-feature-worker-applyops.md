@@ -17,7 +17,9 @@ Labels: feature, worker, operations
 - [ ] Renderer: onEditでOpを送り、返却gridで再描画
 - [ ] エラーハンドリング（不正path、型不一致）
 
+## Progress
+- NOTE: 現状はRendererでYAML Documentを直接編集して保存（コメント保持）。applyOpsはchoreとしてスケルトン実装済。
+
 ## Related Links
 - src/renderer/worker/yamlEngine.ts
 - doc/design/PROJECTION_RULES.md
-
