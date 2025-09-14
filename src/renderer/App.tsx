@@ -1,5 +1,6 @@
 import React from 'react';
 import type { GridModel } from './types';
+import { GridView } from './components/GridView';
 
 declare global {
   interface Window {
@@ -59,35 +60,7 @@ export const App: React.FC = () => {
     }
   };
 
-  const renderGrid = () => {
-    if (!grid) return null;
-    return (
-      <div style={{ marginTop: 16, overflow: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse', minWidth: '100%' }}>
-          <thead>
-            <tr>
-              {grid.columns.map((c) => (
-                <th key={c.key} style={{ border: '1px solid #ccc', padding: '4px 8px', background: '#f7f7f7' }}>
-                  {c.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {grid.rows.map((r) => (
-              <tr key={r.id}>
-                {grid.columns.map((c) => (
-                  <td key={c.key} style={{ border: '1px solid #eee', padding: '4px 8px', fontFamily: 'monospace' }}>
-                    {String((r.cells[c.key]?.value ?? ''))}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
+  const renderGrid = () => (grid ? <GridView grid={grid} /> : null);
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', padding: 16 }}>
