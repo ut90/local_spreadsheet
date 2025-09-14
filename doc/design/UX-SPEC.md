@@ -9,6 +9,12 @@
 - Multi‑select: Shift+click (range). Copy/paste preserves types when possible.
 - Row ops: Add/Delete/Duplicate via toolbar or shortcuts.
 
+## Grid Controls (MVP)
+- Wrap cells: Toggle text wrapping for cell contents (default ON). When ON, long tokens (hostnames/IPs) break at any point to fit.
+- Column widths: Adjust min/max column width in px; actual widths are derived from content measurement and clamped by these values.
+- Font size: Adjust monospace font size in px; affects measurement and rendering.
+- Horizontal scroll: Header/body horizontally scroll in sync; header compensates for body scrollbar width to avoid misalignment.
+
 ## Search & Filter
 - Global search (values/keys). Column filter chips for simple predicates.
 - Large datasets: debounce input and show count of matches.
@@ -27,4 +33,3 @@
 - Full keyboard navigation; visible focus ring.
 - Screen reader labels for grid headers and cells; ARIA roles applied.
 - Zoom and font size adjustable from menu.
-
