@@ -5,14 +5,20 @@ type Req =
   | { type: 'parse'; text: string; reqId: string }
   | { type: 'project'; ast: unknown; reqId: string }
   | { type: 'stringify'; ast: unknown; reqId: string }
-  | { type: 'diff'; before: string; after: string; reqId: string };
+  | { type: 'diff'; before: string; after: string; reqId: string }
+  | { type: 'applyOps'; ast: unknown; ops: Op[]; reqId: string };
 
 type Res =
   | { type: 'parse:ok'; reqId: string; ast: unknown }
   | { type: 'parse:error'; reqId: string; message: string }
   | { type: 'project:ok'; reqId: string; grid: any }
   | { type: 'stringify:ok'; reqId: string; text: string }
-  | { type: 'diff:ok'; reqId: string; hunks: { added?: boolean; removed?: boolean; value: string }[] };
+  | { type: 'diff:ok'; reqId: string; hunks: { added?: boolean; removed?: boolean; value: string }[] }
+  | { type: 'applyOps:ok'; reqId: string; ast: unknown; grid: any };
+
+// Minimal operation model (first slice): set scalar cell by row index + column key
+type Op =
+  | { type: 'setCell'; row: number; key: string; value: unknown };
 
 function inferType(v: any): 'string' | 'int' | 'float' | 'bool' | 'null' | 'date' | 'unknown' {
   if (v === null) return 'null';
@@ -98,6 +104,31 @@ function project(ast: any) {
   return { columns, rows: projRows };
 }
 
+function detectDataset(ast: any): { root: any[] | null; key?: string } {
+  if (Array.isArray(ast)) return { root: ast };
+  if (ast && typeof ast === 'object') {
+    if (Array.isArray(ast['要件'])) return { root: ast['要件'], key: '要件' };
+    const entries = Object.entries(ast);
+    const arr = entries.filter(([, v]) => Array.isArray(v)) as [string, any[]][];
+    if (arr.length) {
+      arr.sort((a, b) => (b[1]?.length || 0) - (a[1]?.length || 0));
+      return { root: arr[0][1], key: arr[0][0] };
+    }
+  }
+  return { root: null };
+}
+
+function setDeep(obj: any, path: string, value: unknown) {
+  const parts = path.split('.');
+  let cur = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const k = parts[i];
+    if (cur[k] == null || typeof cur[k] !== 'object') cur[k] = {};
+    cur = cur[k];
+  }
+  cur[parts[parts.length - 1]] = value as any;
+}
+
 self.onmessage = (ev: MessageEvent<Req>) => {
   const msg = ev.data;
   try {
@@ -116,6 +147,27 @@ self.onmessage = (ev: MessageEvent<Req>) => {
     if (msg.type === 'stringify') {
       const text = YAML.stringify(msg.ast as any);
       const res: Res = { type: 'stringify:ok', reqId: msg.reqId, text };
+      (self as any).postMessage(res);
+      return;
+    }
+    if (msg.type === 'applyOps') {
+      // Apply minimal setCell ops against dataset rows
+      const ast = msg.ast as any;
+      const { root, key } = detectDataset(ast);
+      if (!root) {
+        const res: Res = { type: 'applyOps:ok', reqId: msg.reqId, ast, grid: project(ast) };
+        (self as any).postMessage(res);
+        return;
+      }
+      for (const op of msg.ops) {
+        if (op.type === 'setCell') {
+          const row = root[op.row];
+          if (row && typeof row === 'object') {
+            setDeep(row, op.key, op.value);
+          }
+        }
+      }
+      const res: Res = { type: 'applyOps:ok', reqId: msg.reqId, ast, grid: project(ast) };
       (self as any).postMessage(res);
       return;
     }
