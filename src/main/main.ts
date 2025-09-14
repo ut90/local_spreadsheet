@@ -1,6 +1,4 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
-import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
 import * as YAML from 'yaml';
 import { join, isAbsolute } from 'node:path';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -86,7 +84,7 @@ ipcMain.handle('file:openRequest', async (_e, args: { path?: string }) => {
       // Try attached dialog first
       const res1 = await dialog.showOpenDialog(browser ?? undefined, options as any);
       console.log('[main] openDialog (attached) result', { canceled: res1.canceled, count: res1.filePaths?.length ?? 0 });
-      let picked = res1.filePaths?.[0];
+      let picked: string | undefined = res1.filePaths?.[0];
       if (!picked && res1.canceled) {
         // Fallback: unattached dialog
         const res2 = await dialog.showOpenDialog(options as any);
@@ -147,6 +145,11 @@ ipcMain.handle('validate:yaml', (_e, args: { content: string; schema: 'communica
   console.log('[main] validate:yaml', { schema: args.schema, bytes: args.content?.length });
   try {
     const data = YAML.parse(args.content);
+    // Lazy require to avoid hard dependency during dev
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const Ajv = require('ajv');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const addFormats = require('ajv-formats');
     const ajv = new Ajv({ allErrors: true, strict: false });
     addFormats(ajv);
     const schemaPath = args.schema === 'contacts'

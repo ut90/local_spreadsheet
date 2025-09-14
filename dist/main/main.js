@@ -32,13 +32,8 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const electron_1 = require("electron");
-const ajv_1 = __importDefault(require("ajv"));
-const ajv_formats_1 = __importDefault(require("ajv-formats"));
 const YAML = __importStar(require("yaml"));
 const node_path_1 = require("node:path");
 const node_fs_1 = require("node:fs");
@@ -180,8 +175,13 @@ electron_1.ipcMain.handle('validate:yaml', (_e, args) => {
     console.log('[main] validate:yaml', { schema: args.schema, bytes: args.content?.length });
     try {
         const data = YAML.parse(args.content);
-        const ajv = new ajv_1.default({ allErrors: true, strict: false });
-        (0, ajv_formats_1.default)(ajv);
+        // Lazy require to avoid hard dependency during dev
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const Ajv = require('ajv');
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const addFormats = require('ajv-formats');
+        const ajv = new Ajv({ allErrors: true, strict: false });
+        addFormats(ajv);
         const schemaPath = args.schema === 'contacts'
             ? (0, node_path_1.join)(electron_1.app.getAppPath(), 'samples/contacts.schema.json')
             : (0, node_path_1.join)(electron_1.app.getAppPath(), 'samples/communication_requirements.schema.json');
