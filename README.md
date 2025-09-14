@@ -2,6 +2,17 @@
 
 YAMLを「スプレッドシート的な表形式」で安全かつ直感的に編集するローカル（オフライン）アプリ。Electron実装を前提に設計しています。
 
+## 進捗状況（概要）
+- 完了
+  - グリッド表示（2段ヘッダー＋rowspan）、横スクロール同期、動的列幅、折り返し（既定ON）
+  - サブ行展開（自/他システムサーバー等）と行マージ、基本セル編集（単層・階層子セル）
+  - Open YAML（ファイル選択）、CSP強化（dev/prod）
+- 進行中 / 次対応
+  - 保存フロー（stringify→schema検証→diff→バックアップ→保存）
+  - Worker.applyOps＋astPath付与、Undo/Redo（SetCell優先）
+  - 階層配列の行操作（追加/削除/並べ替え）、型/入力/検証、キーボード操作/フォーカス、設定永続化、テスト強化
+- トラッキング: `issue/` の feature-* を参照（README内リンク）
+
 ## 特長（MVP）
 - ローカルYAMLの読み込み・編集・保存（差分プレビュー、Undo/Redo）
 - 配列/オブジェクトの表形式投影、型保持と安全な直列化
@@ -38,6 +49,7 @@ YAMLを「スプレッドシート的な表形式」で安全かつ直感的に�
 - セキュリティ: `doc/design/SECURITY.md`
 - 設定仕様: `doc/design/SETTINGS.md`
 - テスト戦略: `doc/design/TEST_STRATEGY.md`
+- Issues: `issue/README.md`
 - 実行（MVP開発用）
 - 依存導入: `npm i`
 - 開発起動: `npm run dev`（Vite + tscウォッチ + Electron。preload/main の初回ビルド完了を待って起動）
