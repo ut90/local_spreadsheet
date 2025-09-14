@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
-import { join } from 'node:path';
+import { join, isAbsolute } from 'node:path';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const isDev = process.env.ELECTRON_START_URL || !app.isPackaged;
@@ -41,12 +41,12 @@ ipcMain.handle('app:getVersion', () => ({ version: app.getVersion() }));
 
 ipcMain.handle('file:openRequest', (_e, args: { path?: string }) => {
   if (!args?.path) return { canceled: true };
-  const content = readFileSync(args.path, 'utf8');
-  return { path: args.path, content };
+  const p = isAbsolute(args.path) ? args.path : join(app.getAppPath(), args.path);
+  const content = readFileSync(p, 'utf8');
+  return { path: p, content };
 });
 
 ipcMain.handle('file:saveRequest', (_e, args: { path: string; content: string }) => {
   writeFileSync(args.path, args.content, 'utf8');
   return { path: args.path };
 });
-

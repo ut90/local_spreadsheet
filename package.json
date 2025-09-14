@@ -4,7 +4,7 @@
   "private": true,
   "main": "dist/main/main.js",
   "scripts": {
-    "dev": "concurrently -k -n VITE,MAIN,PRE,ELC -c blue,magenta,cyan,green \"vite\" \"tsc -w -p tsconfig.main.json\" \"tsc -w -p tsconfig.preload.json\" \"wait-on tcp:5173 && electron .\"",
+    "dev": "concurrently -k -n VITE,MAIN,PRE,ELC -c blue,magenta,cyan,green \"vite\" \"tsc -w -p tsconfig.main.json\" \"tsc -w -p tsconfig.preload.json\" \"wait-on tcp:5173 dist/main/main.js dist/preload/index.js && electron .\"",
     "build": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && vite build",
     "start": "electron .",
     "lint": "echo 'add ESLint later'",

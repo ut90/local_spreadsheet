@@ -40,8 +40,9 @@ electron_1.ipcMain.handle('app:getVersion', () => ({ version: electron_1.app.get
 electron_1.ipcMain.handle('file:openRequest', (_e, args) => {
     if (!args?.path)
         return { canceled: true };
-    const content = (0, node_fs_1.readFileSync)(args.path, 'utf8');
-    return { path: args.path, content };
+    const p = (0, node_path_1.isAbsolute)(args.path) ? args.path : (0, node_path_1.join)(electron_1.app.getAppPath(), args.path);
+    const content = (0, node_fs_1.readFileSync)(p, 'utf8');
+    return { path: p, content };
 });
 electron_1.ipcMain.handle('file:saveRequest', (_e, args) => {
     (0, node_fs_1.writeFileSync)(args.path, args.content, 'utf8');

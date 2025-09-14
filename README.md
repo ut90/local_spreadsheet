@@ -39,6 +39,11 @@ YAMLを「スプレッドシート的な表形式」で安全かつ直感的に�
 - テスト戦略: `doc/design/TEST_STRATEGY.md`
 - 実行（MVP開発用）
 - 依存導入: `npm i`
-- 開発起動: `npm run dev`（Vite + tscウォッチ + Electron）
+- 開発起動: `npm run dev`（Vite + tscウォッチ + Electron。preload/main の初回ビルド完了を待って起動）
 - 本番ビルド: `npm run build`
   - グリッド表示: サンプルYAMLを読み込み後、内蔵の軽量グリッドで表示（読み取り専用）
+
+トラブルシューティング
+- 「Open Sample YAML」で何も表示されない場合:
+  - ターミナルに初回ビルド完了ログ（`dist/preload/index.js`, `dist/main/main.js`作成）が出た後にElectronが起動しているか
+  - DevTools コンソールにエラーがないか（`window.api` 未定義 = preload未読込）
