@@ -1,0 +1,2 @@
+approval_mode = "full-auto"
+sandbox_mode  = "workspace-write"
