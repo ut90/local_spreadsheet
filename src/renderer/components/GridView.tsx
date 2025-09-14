@@ -1,10 +1,26 @@
 import React from 'react';
 import type { GridModel } from "../types";
 
-type Props = { grid: GridModel; height?: number; rowHeight?: number };
+type Props = {
+  grid: GridModel;
+  height?: number;
+  rowHeight?: number;
+  wrapCells?: boolean;
+  minColWidth?: number;
+  maxColWidth?: number;
+  fontSizePx?: number;
+};
 
 // Lightweight, dependency-free virtualized grid (read-only)
-export const GridView: React.FC<Props> = ({ grid, height = 400, rowHeight = 28 }) => {
+export const GridView: React.FC<Props> = ({
+  grid,
+  height = 400,
+  rowHeight = 28,
+  wrapCells = false,
+  minColWidth = 120,
+  maxColWidth = 800,
+  fontSizePx = 12,
+}) => {
   const headerRef = React.useRef<HTMLDivElement | null>(null);
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const [headerPadRight, setHeaderPadRight] = React.useState(0);
@@ -57,15 +73,15 @@ export const GridView: React.FC<Props> = ({ grid, height = 400, rowHeight = 28 }
   };
   // Build dynamic column widths based on max data length (approx by chars)
   const colWidths = React.useMemo(() => {
-    const minW = 120;
-    const maxW = 800;
+    const minW = minColWidth;
+    const maxW = maxColWidth;
     const pad = 28; // padding + borders
     const widths: Record<string, number> = {};
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const measure = (text: string) => {
-      if (!ctx) return text.length * 10;
-      ctx.font = '12px monospace';
+      if (!ctx) return text.length * (fontSizePx - 2);
+      ctx.font = `${fontSizePx}px monospace`;
       return ctx.measureText(text).width;
     };
     const ensure = (key: string, candidate: string) => {
@@ -96,7 +112,7 @@ export const GridView: React.FC<Props> = ({ grid, height = 400, rowHeight = 28 }
     // fallback for columns with no data
     leafColumns.forEach((c) => (widths[c.key] = widths[c.key] ?? baseColWidth));
     return widths;
-  }, [grid.rows, leafColumns]);
+  }, [grid.rows, leafColumns, minColWidth, maxColWidth, fontSizePx]);
   const tableWidth = leafColumns.reduce((sum, c) => sum + (colWidths[c.key] ?? baseColWidth), 0);
   const topHeaderHeight = 32;
   const bottomHeaderHeight = 28;
@@ -229,7 +245,22 @@ export const GridView: React.FC<Props> = ({ grid, height = 400, rowHeight = 28 }
                       if (subIdx === 0) {
                         const v = r.cells[c.key]?.value;
                         return (
-                          <td key={`${r.id}-nh-${colIdx}`} rowSpan={span} style={{ padding: '2px 6px', borderRight: '1px solid #fafafa', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'monospace', boxSizing: 'border-box', textAlign: 'left' }} title={formatCell(v)}>
+                          <td
+                            key={`${r.id}-nh-${colIdx}`}
+                            rowSpan={span}
+                            style={{
+                              padding: '6px 8px',
+                              borderRight: '1px solid #f3f3f3',
+                              whiteSpace: wrapCells ? 'normal' : 'nowrap',
+                              overflow: wrapCells ? 'visible' : 'hidden',
+                              textOverflow: wrapCells ? 'clip' : 'ellipsis',
+                              fontFamily: 'monospace',
+                              fontSize: fontSizePx,
+                              boxSizing: 'border-box',
+                              textAlign: 'left',
+                            }}
+                            title={formatCell(v)}
+                          >
                             {formatCell(v)}
                           </td>
                         );
@@ -245,7 +276,21 @@ export const GridView: React.FC<Props> = ({ grid, height = 400, rowHeight = 28 }
                       value = derived[field]?.[subIdx];
                     }
                     return (
-                      <td key={`${r.id}-h-${colIdx}-${subIdx}`} style={{ padding: '2px 6px', borderRight: '1px solid #fafafa', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'monospace', boxSizing: 'border-box', textAlign: 'left' }} title={formatCell(value)}>
+                      <td
+                        key={`${r.id}-h-${colIdx}-${subIdx}`}
+                        style={{
+                          padding: '6px 8px',
+                          borderRight: '1px solid #f3f3f3',
+                          whiteSpace: wrapCells ? 'normal' : 'nowrap',
+                          overflow: wrapCells ? 'visible' : 'hidden',
+                          textOverflow: wrapCells ? 'clip' : 'ellipsis',
+                          fontFamily: 'monospace',
+                          fontSize: fontSizePx,
+                          boxSizing: 'border-box',
+                          textAlign: 'left',
+                        }}
+                        title={formatCell(value)}
+                      >
                         {formatCell(value)}
                       </td>
                     );

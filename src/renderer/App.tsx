@@ -21,6 +21,10 @@ export const App: React.FC = () => {
   const [path, setPath] = React.useState<string>('');
   const [content, setContent] = React.useState<string>('');
   const [grid, setGrid] = React.useState<GridModel | null>(null);
+  const [wrapCells, setWrapCells] = React.useState(false);
+  const [minColWidth, setMinColWidth] = React.useState(120);
+  const [maxColWidth, setMaxColWidth] = React.useState(800);
+  const [fontSizePx, setFontSizePx] = React.useState(12);
 
   // Use shared projection logic (also covered by unit tests)
 
@@ -53,7 +57,16 @@ export const App: React.FC = () => {
     }
   };
 
-  const renderGrid = () => (grid ? <GridView grid={grid} /> : null);
+  const renderGrid = () =>
+    grid ? (
+      <GridView
+        grid={grid}
+        wrapCells={wrapCells}
+        minColWidth={minColWidth}
+        maxColWidth={maxColWidth}
+        fontSizePx={fontSizePx}
+      />
+    ) : null;
 
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', padding: 16 }}>
@@ -65,6 +78,47 @@ export const App: React.FC = () => {
       <p>
         <button onClick={openSample}>Open Sample YAML</button>
       </p>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <input type="checkbox" checked={wrapCells} onChange={(e) => setWrapCells(e.target.checked)} /> Wrap cells
+        </label>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          Min width:
+          <input
+            type="number"
+            value={minColWidth}
+            min={60}
+            max={maxColWidth}
+            onChange={(e) => setMinColWidth(Math.min(Math.max(60, Number(e.target.value) || 0), maxColWidth))}
+            style={{ width: 80 }}
+          />
+          px
+        </label>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          Max width:
+          <input
+            type="number"
+            value={maxColWidth}
+            min={minColWidth}
+            max={2000}
+            onChange={(e) => setMaxColWidth(Math.max(minColWidth, Number(e.target.value) || 0))}
+            style={{ width: 80 }}
+          />
+          px
+        </label>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          Font:
+          <input
+            type="number"
+            value={fontSizePx}
+            min={10}
+            max={18}
+            onChange={(e) => setFontSizePx(Math.min(24, Math.max(10, Number(e.target.value) || 0)))}
+            style={{ width: 60 }}
+          />
+          px
+        </label>
+      </div>
       {path && (
         <div>
           <div>
