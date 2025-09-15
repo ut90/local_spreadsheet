@@ -188,7 +188,30 @@ electron_1.ipcMain.handle('validate:yaml', (_e, args) => {
             console.warn('[main] validate:yaml skipped (ajv not installed)');
             return { ok: true, skipped: 'ajv-missing' };
         }
-        const ajv = new Ajv2020({ allErrors: true, strict: false });
+        let ajv;
+        try {
+            ajv = new Ajv2020({ allErrors: true, strict: false });
+        }
+        catch (e) {
+            // Fallback: try classic Ajv and manually add 2020-12 meta
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const AjvClassic = require('ajv').default || require('ajv');
+                ajv = new AjvClassic({ allErrors: true, strict: false });
+                // eslint-disable-next-line @typescript-eslint/no-var-requires
+                const meta2020 = require('ajv/dist/refs/json-schema-2020-12.json');
+                if (ajv.addMetaSchema)
+                    ajv.addMetaSchema(meta2020);
+                try {
+                    ajv.addSchema(meta2020, 'https://json-schema.org/draft/2020-12/schema');
+                }
+                catch { }
+            }
+            catch (ee) {
+                console.warn('[main] validate:yaml failed to init Ajv', ee);
+                return { ok: true, skipped: 'ajv-init-failed' };
+            }
+        }
         addFormats(ajv);
         // Resolve schema path in dev/prod both: try app root, then relative to compiled dir
         const appRoot = electron_1.app.getAppPath();
@@ -198,6 +221,9 @@ electron_1.ipcMain.handle('validate:yaml', (_e, args) => {
         const secondary = args.schema === 'contacts'
             ? (0, node_path_1.join)(__dirname, '../../samples/contacts.schema.json')
             : (0, node_path_1.join)(__dirname, '../../samples/communication_requirements.schema.json');
+        const tertiary = args.schema === 'contacts'
+            ? (0, node_path_1.join)(process.cwd(), 'samples/contacts.schema.json')
+            : (0, node_path_1.join)(process.cwd(), 'samples/communication_requirements.schema.json');
         let schemaText = null;
         try {
             schemaText = (0, node_fs_1.readFileSync)(primary, 'utf8');
@@ -206,6 +232,12 @@ electron_1.ipcMain.handle('validate:yaml', (_e, args) => {
         if (!schemaText) {
             try {
                 schemaText = (0, node_fs_1.readFileSync)(secondary, 'utf8');
+            }
+            catch { }
+        }
+        if (!schemaText) {
+            try {
+                schemaText = (0, node_fs_1.readFileSync)(tertiary, 'utf8');
             }
             catch { }
         }

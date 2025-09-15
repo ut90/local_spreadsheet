@@ -157,7 +157,24 @@ ipcMain.handle('validate:yaml', (_e, args: { content: string; schema: 'communica
       console.warn('[main] validate:yaml skipped (ajv not installed)');
       return { ok: true, skipped: 'ajv-missing' } as any;
     }
-    const ajv = new Ajv2020({ allErrors: true, strict: false });
+    let ajv: any;
+    try {
+      ajv = new Ajv2020({ allErrors: true, strict: false });
+    } catch (e) {
+      // Fallback: try classic Ajv and manually add 2020-12 meta
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const AjvClassic = (require('ajv') as any).default || require('ajv');
+        ajv = new AjvClassic({ allErrors: true, strict: false });
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const meta2020 = require('ajv/dist/refs/json-schema-2020-12.json');
+        if (ajv.addMetaSchema) ajv.addMetaSchema(meta2020);
+        try { ajv.addSchema(meta2020, 'https://json-schema.org/draft/2020-12/schema'); } catch {}
+      } catch (ee) {
+        console.warn('[main] validate:yaml failed to init Ajv', ee);
+        return { ok: true, skipped: 'ajv-init-failed' } as any;
+      }
+    }
     addFormats(ajv);
     // Resolve schema path in dev/prod both: try app root, then relative to compiled dir
     const appRoot = app.getAppPath();
@@ -167,10 +184,16 @@ ipcMain.handle('validate:yaml', (_e, args: { content: string; schema: 'communica
     const secondary = args.schema === 'contacts'
       ? join(__dirname, '../../samples/contacts.schema.json')
       : join(__dirname, '../../samples/communication_requirements.schema.json');
+    const tertiary = args.schema === 'contacts'
+      ? join(process.cwd(), 'samples/contacts.schema.json')
+      : join(process.cwd(), 'samples/communication_requirements.schema.json');
     let schemaText: string | null = null;
     try { schemaText = readFileSync(primary, 'utf8'); } catch {}
     if (!schemaText) {
       try { schemaText = readFileSync(secondary, 'utf8'); } catch {}
+    }
+    if (!schemaText) {
+      try { schemaText = readFileSync(tertiary, 'utf8'); } catch {}
     }
     if (!schemaText) {
       console.warn('[main] schema not found for', args.schema, { primary, secondary });
